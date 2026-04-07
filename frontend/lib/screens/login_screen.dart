@@ -8,6 +8,8 @@ final username = TextEditingController();
 final password = TextEditingController();
 
 class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().isLoading;
