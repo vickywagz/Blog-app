@@ -28,6 +28,7 @@ class FlutterAuth extends StatelessWidget {
           final router = createRouter(authProvider);
 
           return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
             theme: ThemeData(),
             routerConfig: router,
           );

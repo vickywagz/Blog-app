@@ -5,6 +5,7 @@ class Post {
   final String author;
   final String authorId;
   final String createdAt;
+  final String? image;
 
   Post({
     required this.id,
@@ -13,6 +14,7 @@ class Post {
     required this.author,
     required this.authorId,
     required this.createdAt,
+    this.image,
   });
 
   factory Post.fromJson(Map<String, dynamic> parsedJson) {
@@ -23,6 +25,7 @@ class Post {
       author: parsedJson['author'].toString(),
       authorId: parsedJson['author_id'].toString(),
       createdAt: parsedJson['createdAt'].toString(),
+      image: parsedJson['image'],
     );
   }
 }

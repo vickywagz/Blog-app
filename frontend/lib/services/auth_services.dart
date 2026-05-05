@@ -1,13 +1,13 @@
+import 'package:blog_app/services/api_config.dart';
 import 'package:dio/dio.dart';
 
 class AuthService {
   final Dio dio = Dio();
-  static const String baseUrl = 'http://192.168.18.8:5000';
 
   Future<Response?> login(String username, String password) async {
     try {
       return await dio.post(
-        '$baseUrl/authenticate',
+        '${ApiConfig.baseUrl}/authenticate',
         data: {'name': username, 'password': password},
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
@@ -19,7 +19,7 @@ class AuthService {
   Future<Response?> getInfo(String? token) async {
     try {
       return await dio.get(
-        '$baseUrl/getinfo',
+        '${ApiConfig.baseUrl}/getinfo',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
     } on DioException catch (ex) {
@@ -30,7 +30,7 @@ class AuthService {
   Future<Response?> register(String username, String password) async {
     try {
       return await dio.post(
-        '$baseUrl/adduser',
+        '${ApiConfig.baseUrl}/adduser',
         data: {'name': username, 'password': password},
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );

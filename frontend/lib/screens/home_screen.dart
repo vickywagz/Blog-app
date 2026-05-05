@@ -7,53 +7,118 @@ import 'package:provider/provider.dart';
 
 final _search = TextEditingController();
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return AbsorbPointer(
       absorbing: context.read<PostProvider>().isLoading,
       child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              IconButton(
-                icon: Icon(Icons.logout),
-                onPressed: () {
-                  context.read<AuthProvider>().logout();
-                },
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _search,
-                  cursorColor: Colors.black87,
-                  decoration: InputDecoration(
+        backgroundColor: const Color(0xFFF5F5F7),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                /// TOP BAR
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'THE CURATOR',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                        color: Color(0xFF0B3558),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.refresh,
+                            size: 20,
+                            color: Color(0xFF0B3558),
+                          ),
+                          onPressed: () {
+                            context.read<PostProvider>().refresh();
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.logout,
+                            size: 20,
+                            color: Color(0xFF0B3558),
+                          ),
+                          onPressed: () {
+                            context.read<AuthProvider>().logout();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+
+                /// SEARCH FIELD
+                Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAEAEA),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextField(
+                    controller: _search,
+                    cursorColor: Colors.black87,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Colors.grey,
+                      ),
+                      hintText: 'Search the journal...',
+                      hintStyle: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
                       suffixIcon: IconButton(
-                        icon: Icon(Icons.search),
+                        icon: const Icon(Icons.arrow_forward_ios, size: 16),
                         onPressed: () {
-                          context.read<PostProvider>().search(_search.text);
+                          context
+                              .read<PostProvider>()
+                              .search(_search.text);
                         },
                       ),
-                      hintText: 'Search',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 20.0),
-                      filled: true,
-                      fillColor: Colors.white,
-                      focusColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20.0),
-                      )),
+                    ),
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: Icon(Icons.refresh),
-                onPressed: () {
-                  context.read<PostProvider>().refresh();
-                },
-              ),
-            ],
+
+                const SizedBox(height: 22),
+
+                /// POSTS
+                Expanded(
+                  child: PostList(),
+                ),
+              ],
+            ),
           ),
         ),
-        body: PostList(),
+
+        /// FLOATING BUTTON
         floatingActionButton: FloatingActionButton(
+          backgroundColor: const Color(0xFF005A8D),
+          elevation: 3,
+          shape: const CircleBorder(),
           onPressed: () {
             Navigator.push(
               context,
@@ -62,7 +127,11 @@ class HomeScreen extends StatelessWidget {
               ),
             );
           },
-          child: Icon(Icons.add),
+          child: const Icon(
+            Icons.add,
+            color: Colors.white,
+            size: 28,
+          ),
         ),
       ),
     );
