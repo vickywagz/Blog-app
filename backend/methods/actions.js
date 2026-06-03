@@ -4,75 +4,68 @@ var jwt = require("jwt-simple");
 require("dotenv").config();
 
 var functions = {
-  addNew: function (req, res) {
-    User.findOne(
-      {
+  addNew: async function (req, res) {
+    try {
+      if (!req.body.name || !req.body.password) {
+        return res.status(400).json({ success: false, msg: "Enter all fields" });
+      }
+
+      const user = await User.findOne({ name: req.body.name });
+      
+      if (user) {
+        return res.status(400).json({ success: false, msg: "Username already exists" });
+      }
+
+      var newUser = new User({
         name: req.body.name,
-      },
-      function (err, user) {
-        if (err) {
-          res.json({
-            success: false,
-            msg: "There is a Problem finding the username",
-          });
-        } else {
-          if (!user) {
-            if (!req.body.name || !req.body.password) {
-              res.json({ success: false, msg: "Enter all fields" });
-            } else {
-              var newUser = User({
-                name: req.body.name,
-                password: req.body.password,
-              });
-              newUser.save(function (err, newUser) {
-                if (err) {
-                  res.json({ success: false, msg: "Failed to save" });
-                } else {
-                  res.json({ success: true, msg: "Successfully Save" });
-                }
-              });
-            }
-          } else {
-            res.json({ success: false, msg: "Username already exist" });
-          }
-        }
-      },
-    );
+        password: req.body.password,
+      });
+
+      await newUser.save();
+      return res.json({ success: true, msg: "Successfully Saved" });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There is a Problem saving the user account",
+      });
+    }
   },
-  authenticate: function (req, res) {
-    User.findOne(
-      {
-        name: req.body.name,
-      },
-      function (err, user) {
-        if (err) throw err;
-        if (!user) {
-          res.status(403).send({ success: false, msg: "User not found" });
+
+  authenticate: async function (req, res) {
+    try {
+      const user = await User.findOne({ name: req.body.name });
+      
+      if (!user) {
+        return res.status(403).send({ success: false, msg: "User not found" });
+      }
+
+      user.comparePassword(req.body.password, function (err, isMatch) {
+        if (err) {
+          return res.status(500).send({ success: false, msg: "Error checking password" });
+        }
+        
+        if (isMatch) {
+          var token = jwt.encode(
+            {
+              _id: user._id,
+              name: user.name,
+              createdAt: user.createdAt,
+              updatedAt: user.updatedAt,
+            },
+            process.env.SECRET,
+          );
+          return res.json({ success: true, token: token });
         } else {
-          user.comparePassword(req.body.password, function (err, isMatch) {
-            if (isMatch && !err) {
-              var token = jwt.encode(
-                {
-                  _id: user._id,
-                  name: user.name,
-                  createdAt: user.createdAt,
-                  updatedAt: user.updatedAt,
-                },
-                process.env.SECRET,
-              );
-              res.json({ success: true, token: token });
-            } else {
-              return res
-                .status(403)
-                .send({
-                  success: false,
-                  msg: "Authenticating failed wrong password",
-                });
-            }
+          return res.status(403).send({
+            success: false,
+            msg: "Authentication failed. Wrong password.",
           });
         }
-      },
-    );
+      });
+    } catch (err) {
+      return res.status(500).send({ success: false, msg: "Server authentication error" });
+    }
   },
 
   getinfo: function (req, res) {
@@ -89,142 +82,111 @@ var functions = {
       return res.status(401).json({ success: false, msg: "Unauthorized" });
     }
   },
-  addPost: function (req, res) {
-    if (
-      !req.body.title ||
-      !req.body.body ||
-      !req.body.author ||
-      !req.body.author_id
-    ) {
-      res.json({ success: false, msg: "Please enter all fields" });
-    } else {
-      var newPost = Post({
+
+  addPost: async function (req, res) {
+    if (!req.body.title || !req.body.body || !req.body.author || !req.body.author_id) {
+      return res.status(400).json({ success: false, msg: "Please enter all fields" });
+    } 
+    
+    try {
+      var newPost = new Post({
         title: req.body.title,
         body: req.body.body,
         author: req.body.author,
         author_id: req.body.author_id,
       });
-      newPost.save(function (err) {
-        if (err) {
-          res.json({
-            success: false,
-            msg: `There is a problem saving your post ${err}`,
-          });
-        } else {
-          res.json({ success: true, msg: "Post save successfully" });
-        }
+
+      await newPost.save();
+      return res.json({ success: true, msg: "Post saved successfully" });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: `There is a problem saving your post: ${err.message}`,
       });
     }
   },
 
-  getAllPost: function (req, res) {
-    Post.find({}, function (err, posts) {
-      if (err) {
-        return res.json({
-          success: false,
-          msg: "There was a problem retrieving a posts",
-        });
-      } else {
-        return res.json(posts);
-      }
-    });
-    //return res.send('TEST')
+  getAllPost: async function (req, res) {
+    try {
+      const posts = await Post.find({});
+      return res.json(posts);
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There was a problem retrieving posts",
+      });
+    }
   },
 
-  getPostbyId: function (req, res) {
-    Post.find(
-      {
-        _id: req.params.id,
-      },
-      function (err, posts) {
-        if (err) {
-          return res.json({
-            success: false,
-            msg: "There was a problem retrieving a posts",
-          });
-        } else {
-          return res.json(posts);
+  getPostbyId: async function (req, res) {
+    try {
+      const posts = await Post.find({ _id: req.params.id });
+      return res.json(posts);
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There was a problem retrieving the post",
+      });
+    }
+  },
+
+  getPostbyAuthorId: async function (req, res) {
+    try {
+      const posts = await Post.find({ author_id: req.params.id });
+      return res.json(posts);
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There was a problem retrieving posts",
+      });
+    }
+  },
+
+  searchPost: async function (req, res) {
+    try {
+      var title = req.params.title;
+      const posts = await Post.find({ title: { $regex: `${title}`, $options: "i" } });
+      return res.json(posts);
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There was a problem searching posts: " + err.message,
+      });
+    }
+  },
+
+  deletePost: async function (req, res) {
+    try {
+      await Post.deleteOne({ _id: req.params.id });
+      return res.json({ success: true, msg: "Post Deleted" });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There was an error deleting your post",
+      });
+    }
+  },
+
+  updatePost: async function (req, res) {
+    try {
+      await Post.updateOne(
+        { _id: req.params.id },
+        {
+          $set: {
+            title: req.body.title,
+            body: req.body.body,
+            author: req.body.author,
+            author_id: req.body.author_id,
+          },
         }
-      },
-    );
-    //return res.send('TEST')
-  },
-
-  getPostbyAuthorId: function (req, res) {
-    Post.find(
-      {
-        author_id: req.params.id,
-      },
-      function (err, posts) {
-        if (err) {
-          return res.json({
-            success: false,
-            msg: "There was a problem retrieving a posts",
-          });
-        } else {
-          return res.json(posts);
-        }
-      },
-    );
-    //return res.send('TEST')
-  },
-
-  searchPost: function (req, res) {
-    var title = req.params.title;
-    console.log(title);
-    Post.find(
-      { title: { $regex: `${title}`, $options: "i" } },
-      function (err, posts) {
-        if (err)
-          return res.json({
-            success: false,
-            msg: "There was a problem retrieving a posts" + err,
-          });
-        else return res.json(posts);
-      },
-    );
-  },
-
-  deletePost: function (req, res) {
-    Post.deleteOne(
-      {
-        _id: req.params.id,
-      },
-      function (err) {
-        if (err) {
-          return res.json({
-            success: false,
-            msg: "There was an error delete your post",
-          });
-        } else {
-          return res.json({ success: true, msg: "Post Deleted" });
-        }
-      },
-    );
-  },
-
-  updatePost: function (req, res) {
-    Post.updateOne(
-      { _id: req.params.id },
-      {
-        $set: {
-          title: req.body.title,
-          body: req.body.body,
-          author: req.body.author,
-          author_id: req.body.author_id,
-        },
-      },
-      function (err) {
-        if (err) {
-          return res.json({
-            success: false,
-            msg: "There was an error updating your post",
-          });
-        } else {
-          return res.json({ success: true, msg: "Post updated" });
-        }
-      },
-    );
+      );
+      return res.json({ success: true, msg: "Post updated" });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        msg: "There was an error updating your post",
+      });
+    }
   },
 };
 
