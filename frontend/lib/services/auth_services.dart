@@ -8,8 +8,8 @@ class AuthService {
     try {
       return await dio.post(
         '${ApiConfig.baseUrl}/authenticate',
+        // Pass map data directly; Dio converts it to application/json by default
         data: {'name': username, 'password': password},
-        options: Options(contentType: Headers.formUrlEncodedContentType),
       );
     } on DioException catch (ex) {
       return ex.response;
@@ -32,7 +32,6 @@ class AuthService {
       return await dio.post(
         '${ApiConfig.baseUrl}/adduser',
         data: {'name': username, 'password': password},
-        options: Options(contentType: Headers.formUrlEncodedContentType),
       );
     } on DioException catch (ex) {
       return ex.response;

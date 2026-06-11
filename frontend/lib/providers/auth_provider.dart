@@ -2,120 +2,123 @@ import 'package:blog_app/models/user.dart';
 import 'package:blog_app/services/auth_services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+// A simple response wrapper class to pass backend messages up to your text field validators
+class AuthResult {
+  final bool success;
+  final String message;
+  AuthResult({required this.success, required this.message});
+}
+
 class AuthProvider with ChangeNotifier {
-  Future<User?>? _futureUser;
-  late final storage;
-
+  late final FlutterSecureStorage storage;
   User? _user;
-
-  AuthProvider() {
-    storage = FlutterSecureStorage();
-    initialData();
-  }
-  bool _isLoading = false;
-  void triggerLoad() {
-    _isLoading = !_isLoading;
-    notifyListeners();
-  }
+  bool _isLoading = true; // Start as true so the splash screen stays active during token lookup
 
   User? get user => _user;
-
   bool get isLoading => _isLoading;
 
-  void initialData() async {
-    var value = await (storage.read(key: 'token'));
-    if (value != null) {
-      _futureUser = getUserInfo(value);
-      notifyListeners();
+  AuthProvider() {
+    storage = const FlutterSecureStorage();
+    initialData();
+  }
+
+  /// 1. App Startup: Reads the device keychain storage for existing log tokens
+  Future<void> initialData() async {
+    try {
+      final token = await storage.read(key: 'token');
+      if (token != null) {
+        await getUserInfo(token);
+      }
+    } catch (e) {
+      debugPrint("Error reading secure storage: $e");
+    } finally {
+      _isLoading = false; // Registration/initial token check cycle complete
+      notifyListeners();  // Triggers GoRouter to make its safe routing choice
     }
   }
 
-  Future<void> login(String username, String password) async {
-    triggerLoad();
+  /// 2. Handles user login requests and maps backend errors for text field validation
+  Future<AuthResult> login(String username, String password) async {
+    _isLoading = true;
+    notifyListeners();
 
     try {
       Response? userdata = await AuthService().login(username, password);
 
-      if (userdata != null) {
+      if (userdata != null && userdata.data != null) {
         bool isAuthenticate = userdata.data['success'] == true;
 
         if (isAuthenticate) {
-          await storage.write(key: 'token', value: userdata.data['token']);
-          _futureUser = getUserInfo(userdata.data['token']);
-          notifyListeners();
+          final token = userdata.data['token'];
+          await storage.write(key: 'token', value: token);
+          await getUserInfo(token);
+          
+          return AuthResult(success: true, message: 'Login successful');
         } else {
-          Fluttertoast.showToast(
-            msg: userdata.data['msg'] ?? 'Login failed',
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.CENTER,
-            backgroundColor: Colors.red,
-            textColor: Colors.white,
-            fontSize: 16.0,
+          // Pass the exact backend validation failure message up to the screen layer
+          return AuthResult(
+            success: false, 
+            message: userdata.data['msg'] ?? 'Login failed. Please verify credentials.',
           );
         }
       }
+      return AuthResult(success: false, message: 'Server returned an empty response.');
+    } catch (error) {
+      return AuthResult(success: false, message: 'Connection timeout. Is your backend server awake?');
     } finally {
-      triggerLoad();
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  Future<bool> register(String username, String password) async {
-    triggerLoad();
-    Response? userdata = await AuthService().register(username, password);
-    bool success = userdata?.data['success'];
-    print(success);
-    if (!success) {
-      Fluttertoast.showToast(
-        msg: userdata?.data['msg'],
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        timeInSecForIosWeb: 1,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-      triggerLoad();
-      return false;
-    } else {
-      Fluttertoast.showToast(
-        msg: userdata?.data['msg'],
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        timeInSecForIosWeb: 1,
-        backgroundColor: Colors.green,
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-      triggerLoad();
-      return true;
-    }
-  }
-
-  Future<User?> getUserInfo(String? token) async {
-    var res = await AuthService().getInfo(token);
-    if (res!.data['success']) {
-      var userData = User.fromJson(res.data);
-      _user = userData;
-      print(_user!.id);
-      return userData;
-    } else {
-      return null;
-    }
-  }
-
-  Future<User?>? get futureUser => _futureUser;
-
-  void logout() {
-    _futureUser = makeNull();
-    _user = null;
+  /// 3. Standard Registration Processing Pipeline
+  Future<AuthResult> register(String username, String password) async {
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      Response? userdata = await AuthService().register(username, password);
+      bool success = userdata?.data['success'] == true;
+
+      if (success) {
+        return AuthResult(success: true, message: userdata?.data['msg'] ?? 'Account created successfully.');
+      } else {
+        return AuthResult(success: false, message: userdata?.data['msg'] ?? 'Registration failed.');
+      }
+    } catch (e) {
+      return AuthResult(success: false, message: 'Network connection failed.');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future<User?> makeNull() async {
-    await storage.deleteAll();
-    return null;
+  /// 4. Decodes Profile structures using raw Authorization Headers
+  Future<void> getUserInfo(String? token) async {
+    try {
+      var res = await AuthService().getInfo(token);
+      if (res != null && res.data != null && res.data['success'] == true) {
+        _user = User.fromJson(res.data);
+      } else {
+        _user = null;
+        await storage.delete(key: 'token'); // Clear corrupted/expired tokens safely
+      }
+    } catch (e) {
+      _user = null;
+    }
+  }
+
+  /// 5. Full Account Session Revocation Flow
+  Future<void> logout() async {
+    _isLoading = true;
+    notifyListeners();
+
+    _user = null;
+    await storage.delete(key: 'token'); // Explicitly target your token key instead of wiping everything
+
+    _isLoading = false;
+    notifyListeners();
   }
 }

@@ -1,6 +1,6 @@
-import 'package:blog_app/models/post.dart';
 import 'package:blog_app/providers/post_provider.dart';
 import 'package:blog_app/widgets/post_card_widget.dart';
+import 'package:blog_app/screens/article_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,38 +9,64 @@ class PostList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Post>>(
-      future: context.watch<PostProvider>().searchKey.isEmpty
-          ? context.watch<PostProvider>().getAllPost()
-          : context.watch<PostProvider>().searchPost(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+    final postProvider = context.watch<PostProvider>();
+    final posts = postProvider.posts;
+    final isLoading = postProvider.isLoading;
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF00365C),
+        ),
+      );
+    }
+
+    if (posts.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          const Center(
             child: Text(
               'No journal entries yet',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey,
+                color: Color(0xFF9096A0),
+                fontWeight: FontWeight.w500,
               ),
             ),
-          );
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.only(
-            top: 6,
-            bottom: 120,
           ),
-          itemCount: snapshot.data!.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 26),
-          itemBuilder: (_, i) => PostCardWidget(
-            post: snapshot.data![i],
+        ],
+      );
+    }
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.only(
+        top: 6,
+        // 🟢 FIXED: Increased padding so the last post cleanly clears the persistent floating nav bar layout shell
+        bottom: 140, 
+      ),
+      itemCount: posts.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 26),
+      itemBuilder: (context, i) {
+        final currentPost = posts[i];
+        
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ArticleDetailScreen(),
+              ),
+            );
+          },
+          child: PostCardWidget(
+            post: currentPost,
           ),
         );
       },

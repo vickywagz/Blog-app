@@ -103,6 +103,8 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                             authorId,
                                           );
                                     } else {
+                                      // 🟢 FIXED: We pass the existing generated image string forward 
+                                      // so it preserves consistency during a text modification save.
                                       Post updatedPost = Post(
                                         id: widget.post!.id,
                                         authorId: widget.post!.authorId,
@@ -110,6 +112,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                         body: _body.text,
                                         title: _title.text,
                                         createdAt: widget.post!.createdAt,
+                                        image: widget.post!.image, 
                                       );
 
                                       await context

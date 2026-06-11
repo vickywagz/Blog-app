@@ -1,5 +1,5 @@
 var User = require("../models/user");
-var Post = require("../models/post");
+var Post = require("../models/Post"); 
 var jwt = require("jwt-simple");
 require("dotenv").config();
 
@@ -83,6 +83,7 @@ var functions = {
     }
   },
 
+  // 📝 UPGRADED TO SUPPORT IMAGE ATTACHMENTS
   addPost: async function (req, res) {
     if (!req.body.title || !req.body.body || !req.body.author || !req.body.author_id) {
       return res.status(400).json({ success: false, msg: "Please enter all fields" });
@@ -94,10 +95,11 @@ var functions = {
         body: req.body.body,
         author: req.body.author,
         author_id: req.body.author_id,
+        postImage: req.body.postImage || "", // 📷 Captures the optional Cloudinary image URL from Flutter
       });
 
       await newPost.save();
-      return res.json({ success: true, msg: "Post saved successfully" });
+      return res.json({ success: true, msg: "Post saved successfully", post: newPost });
     } catch (err) {
       return res.status(500).json({
         success: false,
@@ -106,6 +108,7 @@ var functions = {
     }
   },
 
+  // Redundant but safe to leave as fallback alternative
   getAllPost: async function (req, res) {
     try {
       const posts = await Post.find({});
@@ -120,8 +123,10 @@ var functions = {
 
   getPostbyId: async function (req, res) {
     try {
-      const posts = await Post.find({ _id: req.params.id });
-      return res.json(posts);
+      // Adjusted from .find() to .findById() for cleaner object retrieval instead of lists
+      const post = await Post.findById(req.params.id);
+      if (!post) return res.status(404).json({ success: false, msg: "Post not found" });
+      return res.json(post);
     } catch (err) {
       return res.status(500).json({
         success: false,
@@ -177,6 +182,7 @@ var functions = {
             body: req.body.body,
             author: req.body.author,
             author_id: req.body.author_id,
+            postImage: req.body.postImage, // Keeps image properties intact on updates
           },
         }
       );

@@ -15,120 +15,195 @@ class PostCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final username = context.read<AuthProvider>().user!.username;
+    final currentUser = context.read<AuthProvider>().user?.username;
 
     return Container(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 20),
       decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(
             color: Color(0xFFEAEAEA),
+            width: 1,
           ),
         ),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// TITLE
-          Text(
-            post.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 22,
-              height: 1.2,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1C1C1C),
-            ),
-          ),
+          /// --- LEFT SIDE: TEXT CONTENT & STATS METRICS ---
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                /// TITLE
+                Text(
+                  post.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    height: 1.25,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1C1C1C),
+                  ),
+                ),
 
-          const SizedBox(height: 14),
+                const SizedBox(height: 8),
 
-          /// BODY
-          Text(
-            post.body,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.7,
-              color: Color(0xFF5F5F5F),
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+                /// BODY EXCERPT
+                Text(
+                  post.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Color(0xFF6E7582),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
 
-          const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-          /// BOTTOM ROW
-          Row(
-            children: [
-              /// AUTHOR
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    children: [
-                      const TextSpan(
-                        text: 'By ',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      TextSpan(
-                        text: post.author,
+                /// BOTTOM FOOTER: AUTHOR & STATS ROW
+                Row(
+                  children: [
+                    /// AUTHOR LABEL
+                    Flexible(
+                      child: Text(
+                        'By ${post.author}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF0B5E8E),
+                          color: Color(0xFF00365C), // Premium deep brand tone
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
 
-              /// ACTIONS
-              if (username == post.author) ...[
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AddUpdateScreen(post: post),
+                    const SizedBox(width: 14),
+
+                    /// LIKES STATISTIC
+                    const Icon(
+                      Icons.favorite_border_rounded,
+                      size: 15,
+                      color: Color(0xFF9096A0),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      '1.2k', // Temporary design fallback placeholder match
+                      style: TextStyle(
+                        color: Color(0xFF9096A0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
-                    );
-                  },
-                  child: const Text(
-                    'Edit',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
                     ),
-                  ),
-                ),
 
-                const SizedBox(width: 22),
+                    const SizedBox(width: 12),
 
-                GestureDetector(
-                  onTap: () async {
-                    await context
-                        .read<PostProvider>()
-                        .deletePost(post.id);
-                  },
-                  child: const Text(
-                    'Delete',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFD64545),
+                    /// VIEWS STATISTIC
+                    const Icon(
+                      Icons.visibility_outlined,
+                      size: 15,
+                      color: Color(0xFF9096A0),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      '4.5k', // Temporary design fallback placeholder match
+                      style: TextStyle(
+                        color: Color(0xFF9096A0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+
+                    const SizedBox(width: 4),
+
+                    /// THREE-DOTS POPUP MENU BUTTON
+                    PopupMenuButton<String>(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        size: 18,
+                        color: Color(0xFF1F2328),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 110),
+                      style: const ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onSelected: (action) async {
+                        if (action == 'edit') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddUpdateScreen(post: post),
+                            ),
+                          );
+                        } else if (action == 'delete') {
+                          await context.read<PostProvider>().deletePost(post.id);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        const PopupMenuItem<String>(
+                          value: 'edit',
+                          height: 38,
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 16, color: Colors.black87),
+                              SizedBox(width: 8),
+                              Text('Edit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                        // Only let authors wipe their own posts away
+                        if (currentUser == post.author)
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFD64545)),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFD64545),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
-            ],
+            ),
+          ),
+
+          const SizedBox(width: 16),
+
+          /// --- RIGHT SIDE: PREMIUM PRE-CACHED POST ROUNDED CORNER CARD IMAGE ---
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.network(
+              post.image,
+              width: 84,
+              height: 84,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                // Smooth local fallback safety shape in case client device network connection drops out
+                return Container(
+                  width: 84,
+                  height: 84,
+                  color: const Color(0xFFEAEAEA),
+                  child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 20),
+                );
+              },
+            ),
           ),
         ],
       ),
