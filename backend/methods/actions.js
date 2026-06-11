@@ -1,5 +1,5 @@
 var User = require("../models/user");
-var Post = require("../models/Post"); 
+var Post = require("../models/post"); 
 var jwt = require("jwt-simple");
 require("dotenv").config();
 

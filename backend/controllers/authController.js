@@ -1,5 +1,5 @@
 const User = require("../models/user");
-const Post = require("../models/Post"); 
+const Post = require("../models/post"); 
 const Notification = require("../models/Notification");
 const sendEmail = require("../utils/sendEmail");
 const { uploadToCloudinary } = require("../utils/cloudinaryStorage");
