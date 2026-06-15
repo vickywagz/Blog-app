@@ -1,16 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:blog_app/providers/auth_provider.dart';
 
 class OtpScreen extends StatefulWidget {
-  const OtpScreen({super.key});
+  final String username; // Captured dynamically from the register stream
+
+  const OtpScreen({super.key, required this.username});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  // Logic for the 6-digit input (matches your portfolio text requirements)
+  // Logic for the 6-digit input
   final List<TextEditingController> _controllers = List.generate(
     6,
     (index) => TextEditingController(),
@@ -21,6 +25,9 @@ class _OtpScreenState extends State<OtpScreen> {
   Timer? _timer;
   int _secondsRemaining = 57;
   bool _canResend = false;
+
+  // Track layout status safely separate from global configurations
+  bool _isVerifyingFromServer = false;
 
   @override
   void initState() {
@@ -34,8 +41,11 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _startTimer() {
-    _secondsRemaining = 57;
-    _canResend = false;
+    setState(() {
+      _secondsRemaining = 57;
+      _canResend = false;
+    });
+    _timer?.cancel(); // Clear any existing instance
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_secondsRemaining > 0) {
@@ -62,6 +72,55 @@ class _OtpScreenState extends State<OtpScreen> {
 
   /// Determines if all 6 digits are entered to activate the button
   bool get _isComplete => _controllers.every((c) => c.text.isNotEmpty);
+
+  /// Combines the 6 unique input values into a single contiguous string
+  String get _compiledOtpCode => _controllers.map((c) => c.text.trim()).join();
+
+  Future<void> _submitOtpVerification() async {
+    if (!_isComplete || _isVerifyingFromServer) return;
+
+    setState(() {
+      _isVerifyingFromServer = true;
+    });
+
+    final authProvider = context.read<AuthProvider>();
+    
+    final result = await authProvider.verifyAccountOtp(
+      widget.username, 
+      _compiledOtpCode,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isVerifyingFromServer = false;
+    });
+
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message), 
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      // Clear navigation history stack completely and route them back to log in
+      context.go('/login'); 
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message), 
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      // Clear wrong attempts so the user can easily re-type numbers
+      for (var controller in _controllers) {
+        controller.clear();
+      }
+      _focusNodes[0].requestFocus();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,12 +183,12 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  'We\'ve sent a 6-digit confirmation code to jul.***@curator.io. Please enter it below to verify your changes.',
+                  "We've sent a 6-digit confirmation code for account verification. Please enter it below to confirm access for '${widget.username}'.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Color(0xFF4A5568),
                     height: 1.45,
@@ -189,43 +248,50 @@ class _OtpScreenState extends State<OtpScreen> {
                 width: double.infinity,
                 height: 58,
                 child: ElevatedButton(
-                  onPressed: _isComplete
-                      ? () {
-                          
-                          context.push("/reset-password-screen");
-                        }
-                      : null, // Keeps interaction disabled until entry array fills up
+                  onPressed: (_isComplete && !_isVerifyingFromServer)
+                      ? _submitOtpVerification
+                      : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFECEFF3),
-                    disabledBackgroundColor: const Color(0xFFECEFF3).withOpacity(0.5),
+                    backgroundColor: const Color(0xFF1F2328),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFECEFF3),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(29),
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Verify',
-                        style: TextStyle(
-                          color: _isComplete
-                              ? const Color(0xFF111111)
-                              : const Color(0xFF9AA2AC),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
+                  child: _isVerifyingFromServer
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Verify Account',
+                              style: TextStyle(
+                                color: _isComplete
+                                    ? Colors.white
+                                    : const Color(0xFF9AA2AC),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: _isComplete
+                                  ? Colors.white
+                                  : const Color(0xFF9AA2AC),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 16,
-                        color: _isComplete
-                            ? const Color(0xFF111111)
-                            : const Color(0xFF9AA2AC),
-                      ),
-                    ],
-                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -244,7 +310,7 @@ class _OtpScreenState extends State<OtpScreen> {
       width: 48,
       height: 60,
       decoration: BoxDecoration(
-        color: const Color(0xFFECEFF3), // True component workspace container color
+        color: const Color(0xFFECEFF3),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: hasFocus ? const Color(0xFF005E9E) : Colors.transparent,
@@ -273,7 +339,7 @@ class _OtpScreenState extends State<OtpScreen> {
           } else if (value.isEmpty && index > 0) {
             _focusNodes[index - 1].requestFocus();
           }
-          setState(() {}); // Recalculates dynamic submit button validation parameters
+          setState(() {}); // Recalculates validation state for button activation
         },
       ),
     );

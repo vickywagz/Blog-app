@@ -1,10 +1,10 @@
+import 'dart:io';
 import 'package:blog_app/models/user.dart';
 import 'package:blog_app/services/auth_services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// A simple response wrapper class to pass backend messages up to your text field validators
 class AuthResult {
   final bool success;
   final String message;
@@ -14,7 +14,7 @@ class AuthResult {
 class AuthProvider with ChangeNotifier {
   late final FlutterSecureStorage storage;
   User? _user;
-  bool _isLoading = true; // Start as true so the splash screen stays active during token lookup
+  bool _isLoading = true; 
 
   User? get user => _user;
   bool get isLoading => _isLoading;
@@ -24,22 +24,20 @@ class AuthProvider with ChangeNotifier {
     initialData();
   }
 
-  /// 1. App Startup: Reads the device keychain storage for existing log tokens
   Future<void> initialData() async {
     try {
       final token = await storage.read(key: 'token');
       if (token != null) {
-        await getUserInfo(token);
+        await getUserInfo();
       }
     } catch (e) {
       debugPrint("Error reading secure storage: $e");
     } finally {
-      _isLoading = false; // Registration/initial token check cycle complete
-      notifyListeners();  // Triggers GoRouter to make its safe routing choice
+      _isLoading = false; 
+      notifyListeners();  
     }
   }
 
-  /// 2. Handles user login requests and maps backend errors for text field validation
   Future<AuthResult> login(String username, String password) async {
     _isLoading = true;
     notifyListeners();
@@ -53,11 +51,10 @@ class AuthProvider with ChangeNotifier {
         if (isAuthenticate) {
           final token = userdata.data['token'];
           await storage.write(key: 'token', value: token);
-          await getUserInfo(token);
+          await getUserInfo();
           
           return AuthResult(success: true, message: 'Login successful');
         } else {
-          // Pass the exact backend validation failure message up to the screen layer
           return AuthResult(
             success: false, 
             message: userdata.data['msg'] ?? 'Login failed. Please verify credentials.',
@@ -73,7 +70,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// 3. Standard Registration Processing Pipeline
   Future<AuthResult> register(String username, String password) async {
     _isLoading = true;
     notifyListeners();
@@ -95,30 +91,186 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// 4. Decodes Profile structures using raw Authorization Headers
-  Future<void> getUserInfo(String? token) async {
+  Future<void> getUserInfo() async {
     try {
-      var res = await AuthService().getInfo(token);
+      var res = await AuthService().getInfo(); 
       if (res != null && res.data != null && res.data['success'] == true) {
         _user = User.fromJson(res.data);
       } else {
         _user = null;
-        await storage.delete(key: 'token'); // Clear corrupted/expired tokens safely
+        await storage.delete(key: 'token'); 
       }
     } catch (e) {
       _user = null;
     }
   }
 
-  /// 5. Full Account Session Revocation Flow
   Future<void> logout() async {
     _isLoading = true;
     notifyListeners();
 
     _user = null;
-    await storage.delete(key: 'token'); // Explicitly target your token key instead of wiping everything
+    await storage.delete(key: 'token'); 
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<AuthResult> verifyAccountOtp(String username, String otpCode) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      Response? response = await AuthService().verifyOtp(username, otpCode);
+      bool success = response?.data['success'] == true;
+
+      if (success) {
+        return AuthResult(
+          success: true, 
+          message: response?.data['msg'] ?? 'Verification successful!',
+        );
+      } else {
+        return AuthResult(
+          success: false, 
+          message: response?.data['msg'] ?? 'Invalid or expired OTP code.',
+        );
+      }
+    } catch (e) {
+      return AuthResult(success: false, message: 'Server communication failure.');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<AuthResult> forgotPassword(String email) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      Response? response = await AuthService().forgotPassword(email);
+      bool success = response?.data['success'] == true;
+
+      if (success) {
+        return AuthResult(
+          success: true, 
+          message: response?.data['msg'] ?? 'Recovery code sent successfully!',
+        );
+      } else {
+        return AuthResult(
+          success: false, 
+          message: response?.data['msg'] ?? 'Failed to send recovery code.',
+        );
+      }
+    } catch (e) {
+      return AuthResult(success: false, message: 'Server communication failure.');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<AuthResult> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      Response? response = await AuthService().resetPassword(email, token, newPassword);
+      bool success = response?.data['success'] == true;
+
+      if (success) {
+        return AuthResult(
+          success: true, 
+          message: response?.data['msg'] ?? 'Password updated successfully!',
+        );
+      } else {
+        return AuthResult(
+          success: false, 
+          message: response?.data['msg'] ?? 'Failed to reset password.',
+        );
+      }
+    } catch (e) {
+      return AuthResult(success: false, message: 'Server communication failure.');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 🟢 FIXED: Switched from UserService to AuthService and replaced _setLoading() with explicit local flag state assignments
+  Future<bool> uploadProfileImage(File file) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    Response? res = await AuthService().updateProfilePicture(file);
+    
+    if (res != null && res.statusCode == 200) {
+      final newImageUrl = res.data['user']['profileImage'] ?? res.data['url'];
+      
+      if (_user != null && newImageUrl != null) {
+        // Fallback implementation if your model lacks a copyWith generator method
+        _user = User(
+          id: _user!.id,
+          name: _user!.name,
+          username: _user!.username,
+          email: _user!.email,
+          bio: _user!.bio,
+          profilePicture: _user!.profilePicture,
+          isVerified: _user!.isVerified,
+          profileImage: newImageUrl, // Inject fresh asset string
+        );
+        notifyListeners();
+      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+    
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  /// 🟢 FIXED: Replaced _setLoading() with actual boolean state mutators and passed username to backend service hook 
+  Future<bool> updateProfileDetails({
+    required String name, 
+    required String bio,
+    required String username,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    Response? res = await AuthService().updateProfileText(
+      name: name, 
+      bio: bio, 
+      username: username,
+    );
+    
+    if (res != null && res.statusCode == 200) {
+      if (_user != null) {
+        _user = User(
+          id: _user!.id,
+          name: name,
+          username: username,
+          email: _user!.email,
+          bio: bio,
+          profilePicture: _user!.profilePicture,
+          isVerified: _user!.isVerified,
+          profileImage: _user!.profileImage,
+        );
+        notifyListeners(); 
+      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+    
+    _isLoading = false;
+    notifyListeners();
+    return false;
   }
 }

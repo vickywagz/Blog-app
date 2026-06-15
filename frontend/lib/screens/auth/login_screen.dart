@@ -12,12 +12,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // 1. Properly managed inside the Widget state lifecycle
+  // Properly managed inside the Widget state lifecycle
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
 
-  // 2. Inline Error Strings updated dynamically by the backend catch block
+  // Inline Error Strings updated dynamically by the backend catch block
   String? _serverUsernameError;
   String? _serverPasswordError;
 
@@ -44,11 +44,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    // Trigger login action inside updated AuthProvider
+    // Trigger login action inside AuthProvider
+    // The provider should handle calling /authenticate and saving the JWT to secure storage
     final result = await context.read<AuthProvider>().login(
       _usernameController.text.trim(),
       _passwordController.text,
     );
+
+    if (!mounted) return;
 
     // If the backend sent an error, intercept it here
     if (!result.success) {
@@ -57,9 +60,11 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         if (errorMessage.contains('user') ||
             errorMessage.contains('name') ||
-            errorMessage.contains('exist')) {
+            errorMessage.contains('exist') ||
+            errorMessage.contains('find')) {
           _serverUsernameError = result.message;
-        } else if (errorMessage.contains('password')) {
+        } else if (errorMessage.contains('password') ||
+            errorMessage.contains('invalid')) {
           _serverPasswordError = result.message;
         } else {
           // Fallback for generic errors (e.g. network/server errors)
@@ -69,6 +74,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Re-run the form validator to show the backend messages inline
       _formKey.currentState!.validate();
+    } else {
+      // Clear navigation history stack completely and route them to your landing workspace
+      context.go('/dashboard');
     }
   }
 
@@ -126,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Continue your editorial journey.',
+                      'Continue your journey.',
                       style: TextStyle(fontSize: 15, color: Color(0xFF7A8087)),
                     ),
                     const SizedBox(height: 48),
@@ -148,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: _usernameController,
                       keyboardType: TextInputType.emailAddress,
+                      enabled: !isLoading,
                       decoration: InputDecoration(
                         hintText: 'editor@architect.com',
                         hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
@@ -186,9 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () {
-                            context.push("/Forgot-Password-Screen");
-                          },
+                          onPressed: isLoading
+                              ? null
+                              : () => context.push("/Forgot-Password-Screen"),
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: Size.zero,
@@ -210,6 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       obscureText: true,
                       controller: _passwordController,
+                      enabled: !isLoading,
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
@@ -242,9 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: isLoading
-                            ? null
-                            : _handleLogin, // Disable button tap if fetching
+                        onPressed: isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1F2328),
                           foregroundColor: Colors.white,
@@ -291,10 +299,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         GestureDetector(
                           onTap: isLoading
                               ? null
-                              : () {
-                                  
-                                  context.push('/register');
-                                },
+                              : () => context.push('/register'),
                           child: const Text(
                             'Sign up',
                             style: TextStyle(

@@ -15,7 +15,14 @@ class PostCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = context.read<AuthProvider>().user?.username;
+    // 🟢 Extract the full user model so we can grab the ID for array lookups
+    final currentUser = context.read<AuthProvider>().user;
+    final currentUserId = currentUser?.id ?? '';
+    final currentUserName = currentUser?.name;
+
+    // 🟢 Check interaction flags dynamically based on your Post model lists
+    final isLiked = post.likes.contains(currentUserId);
+    final isSaved = post.savedBy.contains(currentUserId);
 
     return Container(
       padding: const EdgeInsets.only(bottom: 20),
@@ -63,7 +70,7 @@ class PostCardWidget extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12), // 🟢 Slightly adjusted to accommodate interactive hit targets cleanly
 
                 /// BOTTOM FOOTER: AUTHOR & STATS ROW
                 Row(
@@ -75,32 +82,67 @@ class PostCardWidget extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF00365C), // Premium deep brand tone
+                          color: Color(0xFF00365C),
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
 
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 8),
 
-                    /// LIKES STATISTIC
-                    const Icon(
-                      Icons.favorite_border_rounded,
-                      size: 15,
-                      color: Color(0xFF9096A0),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      '1.2k', // Temporary design fallback placeholder match
-                      style: TextStyle(
-                        color: Color(0xFF9096A0),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    /// 🟢 DYNAMIC LIKES TOGGLE BUTTON
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        if (currentUserId.isNotEmpty) {
+                          context.read<PostProvider>().togglePostLike(post.id, currentUserId);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              size: 16,
+                              color: isLiked ? Colors.redAccent : const Color(0xFF9096A0),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${post.likes.length}', // 🟢 Displays live total array length count
+                              style: TextStyle(
+                                color: isLiked ? Colors.redAccent : const Color(0xFF9096A0),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 4),
+
+                    /// 🟢 DYNAMIC BOOKMARK/SAVE TOGGLE BUTTON
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        if (currentUserId.isNotEmpty) {
+                          context.read<PostProvider>().togglePostSave(post.id, currentUserId);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                          size: 16,
+                          color: isSaved ? const Color(0xFF00365C) : const Color(0xFF9096A0),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 4),
 
                     /// VIEWS STATISTIC
                     const Icon(
@@ -110,7 +152,7 @@ class PostCardWidget extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     const Text(
-                      '4.5k', // Temporary design fallback placeholder match
+                      '4.5k', // Keeping view counter placeholder intact
                       style: TextStyle(
                         color: Color(0xFF9096A0),
                         fontSize: 12,
@@ -118,7 +160,7 @@ class PostCardWidget extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(width: 4),
+                    const Spacer(), // Push menu button cleanly all the way right
 
                     /// THREE-DOTS POPUP MENU BUTTON
                     PopupMenuButton<String>(
@@ -151,13 +193,12 @@ class PostCardWidget extends StatelessWidget {
                           child: Row(
                             children: [
                               Icon(Icons.edit_outlined, size: 16, color: Colors.black87),
-                              SizedBox(width: 8),
+                              Spacer(),
                               Text('Edit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                             ],
                           ),
                         ),
-                        // Only let authors wipe their own posts away
-                        if (currentUser == post.author)
+                        if (currentUserName == post.author)
                           const PopupMenuItem<String>(
                             value: 'delete',
                             height: 38,
@@ -189,23 +230,37 @@ class PostCardWidget extends StatelessWidget {
           /// --- RIGHT SIDE: PREMIUM PRE-CACHED POST ROUNDED CORNER CARD IMAGE ---
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              post.image,
-              width: 84,
-              height: 84,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                // Smooth local fallback safety shape in case client device network connection drops out
-                return Container(
-                  width: 84,
-                  height: 84,
-                  color: const Color(0xFFEAEAEA),
-                  child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 20),
-                );
-              },
-            ),
+            child: post.postImage.isNotEmpty 
+                ? Image.network(
+                    post.postImage, 
+                    width: 84,
+                    height: 84,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const _ImageFallback();
+                    },
+                  )
+                : const _ImageFallback(), 
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ImageFallback extends StatelessWidget {
+  const _ImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 84,
+      height: 84,
+      color: const Color(0xFFEAEAEA),
+      child: const Icon(
+        Icons.image_not_supported_outlined, 
+        color: Colors.grey, 
+        size: 20,
       ),
     );
   }

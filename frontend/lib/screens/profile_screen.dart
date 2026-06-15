@@ -1,7 +1,8 @@
-import 'package:blog_app/providers/auth_provider.dart'; 
+import 'package:blog_app/providers/auth_provider.dart';
+import 'package:blog_app/widgets/profilepictureupdate_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart'; // 🟢 Added this to access context.read()
+import 'package:provider/provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,83 +18,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _bioController;
   late final TextEditingController _emailController;
 
-  void _showLogoutConfirmationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Log Out',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF002244),
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to log out of The Curator?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => context.pop(), 
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF7A8087),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                // 1. Dismiss the modal dialog box overlay first
-                context.pop();
-
-                // 2. Clear out the User state data inside your provider layer 🟢
-                // This changes authProvider.user to null, satisfying your AppRouter rule!
-                await context.read<AuthProvider>().logout(); 
-
-                // 3. Purge history and redirect safely
-                if (context.mounted) {
-                  context.go('/login'); 
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Log Out',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // Tracks if any values have actually changed to activate top buttons
   bool _hasChanges = false;
 
-  // Initial mock data to compare against for changes
-  final String _initialName = 'Julian Vane';
-  final String _initialUsername = 'julianvane';
-  final String _initialBio =
-      'Editor-in-Chief. Obsessed with minimal computing and the intersection of technology and human';
-  final String _initialEmail = 'julian.vane@curator.io';
+  // 🟢 State variables to store initial values dynamically from the Provider
+  late String _initialName;
+  late String _initialUsername;
+  late String _initialBio;
+  late String _initialEmail;
 
   @override
   void initState() {
     super.initState();
+
+    // 🟢 Extract the current user state immediately on initialization
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
+
+    // 🟢 Fallback to your old defaults if the user object properties happen to be blank
+    _initialName = user?.name ?? 'Julian Vane';
+    _initialUsername = user?.username ?? 'julianvane';
+    _initialBio =
+        user?.bio ??
+        'Editor-in-Chief. Obsessed with minimal computing and the intersection of technology and human';
+    _initialEmail = user?.email ?? 'julian.vane@curator.io';
+
+    // Assign text values straight down to controllers
     _nameController = TextEditingController(text: _initialName);
     _usernameController = TextEditingController(text: _initialUsername);
     _bioController = TextEditingController(text: _initialBio);
@@ -134,8 +84,117 @@ class _ProfileScreenState extends State<ProfileScreen> {
     FocusScope.of(context).unfocus();
   }
 
+  // Inside your Profile Screen State class where you handle the save event:
+  // Inside your Profile Screen State class where you handle the save event:
+  Future<void> _handleProfileSave() async {
+    final authProvider = context.read<AuthProvider>();
+
+    // Get values straight from your text controllers
+    final newName = _nameController.text.trim();
+    final newBio = _bioController.text.trim();
+    final newUsername = _usernameController.text
+        .trim(); // 🟢 Read username field
+
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name field cannot be empty')),
+      );
+      return;
+    }
+
+    // Fire the updates straight to the database via provider
+    bool success = await authProvider.updateProfileDetails(
+      name: newName,
+      bio: newBio,
+      username: newUsername, 
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Profile updated successfully!'
+                : 'Failed to update profile.',
+          ),
+          backgroundColor: success ? Colors.green : Colors.redAccent,
+        ),
+      );
+
+      // 🟢 FIXED: Removed the undefined _isEditing line since you track state via _hasChanges instead!
+    }
+  }
+
+  void _showLogoutConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Log Out',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF002244),
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to log out of The Curator?',
+          ),
+          actions: [
+            TextButton(
+              // 🟢 The button already has an onPressed handler dismissing the dialog box here!
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF7A8087),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // 1. Dismiss modal first
+                Navigator.pop(dialogContext);
+
+                // 2. Clear out the User state data inside your provider layer 🟢
+                await context.read<AuthProvider>().logout();
+
+                // 3. Purge history and redirect safely
+                if (context.mounted) {
+                  context.go('/login');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Log Out',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 🟢 Optional: If your avatar or other parts of the layout need to react
+    // immediately to profile data changes elsewhere, you can watch the state here:
+    final currentUser = context.watch<AuthProvider>().user;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
@@ -144,7 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         scrolledUnderElevation: 0,
         leadingWidth: 100,
         leading: TextButton.icon(
-          onPressed: () => context.pop(), // 🟢 Updated to match GoRouter navigation convention
+          onPressed: () => context.pop(),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 16,
@@ -176,14 +235,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: ElevatedButton(
-                onPressed: () {
-                  FocusScope.of(context).unfocus();
-                  setState(() => _hasChanges = false);
-                },
+                onPressed: _hasChanges
+                    ? () async {
+                        // 🟢 1. Dismiss keyboard
+                        FocusScope.of(context).unfocus();
+
+                        // 🟢 2. Call the actual save logic we defined
+                        await _handleProfileSave();
+
+                        // 🟢 3. Update the initial values so the "Save" button hides again
+                        setState(() {
+                          _initialName = _nameController.text;
+                          _initialBio = _bioController.text;
+                          _initialUsername = _usernameController.text;
+                          _hasChanges = false;
+                        });
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFECEFF3),
+                  backgroundColor: const Color(
+                    0xFF00365C,
+                  ), // 🟢 Use brand blue when active
+                  disabledBackgroundColor: const Color(0xFFECEFF3),
                   elevation: 0,
-                  shadowColor: Colors.transparent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
@@ -195,7 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: const Text(
                   'Save Changes',
                   style: TextStyle(
-                    color: Color(0xFF1F2328),
+                    color: Colors.white, // 🟢 White text for better contrast
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -241,28 +315,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 16),
-                  width: 130,
-                  height: 130,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: const DecorationImage(
-                      image: NetworkImage(
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256',
-                      ),
-                      fit: BoxFit.cover,
-                    ),
-                    border: Border.all(color: Colors.white, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+              // 🟢 INSERT THIS INSTEAD:
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: ProfilePictureUploadWidget(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -388,7 +445,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _initialEmail,
+                      _initialEmail, // 🟢 Render dynamically populated state parameter
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,

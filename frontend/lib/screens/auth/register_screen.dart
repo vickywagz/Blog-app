@@ -45,7 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
-    
+
     // Call the updated provider that passes back AuthResult details
     final result = await authProvider.register(
       _usernameController.text.trim(),
@@ -53,9 +53,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     if (result.success) {
-      // Clear navigation history tracking and step backwards smoothly
       if (mounted) {
-        context.pop();
+        context.push('/otp', extra: _usernameController.text.trim());
       }
     } else {
       // 3. Intercept server errors and drop them directly beneath the username/form area
@@ -96,7 +95,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         'assets/icons/logo.png',
                         fit: BoxFit.contain,
                         color: Colors.white,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.edit_note, color: Colors.white),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.edit_note, color: Colors.white),
                       ),
                     ),
                   ),
@@ -138,7 +138,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -177,7 +180,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -221,7 +227,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -231,7 +240,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       if (value == null || value.isEmpty) {
                         return '* Required';
                       }
-                      if (_passwordController.text != _repasswordController.text) {
+                      if (_passwordController.text !=
+                          _repasswordController.text) {
                         return 'Passwords do not match';
                       }
                       return null;
@@ -249,7 +259,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1F2328),
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: const Color(0xFF1F2328).withOpacity(0.6),
+                        disabledBackgroundColor: const Color(
+                          0xFF1F2328,
+                        ).withOpacity(0.6),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -266,7 +278,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             )
                           : const Text(
                               'Create Account',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                     ),
                   ),
@@ -279,13 +294,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text(
                         'Already registered? ',
-                        style: TextStyle(fontSize: 14, color: Color(0xFF8A9097)),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF8A9097),
+                        ),
                       ),
                       GestureDetector(
                         onTap: isLoading
                             ? null
                             : () {
-                                context.pop(); 
+                                context.pop();
                               },
                         child: const Text(
                           'Log in',

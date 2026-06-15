@@ -1,5 +1,7 @@
 import 'package:blog_app/providers/auth_provider.dart';
+import 'package:blog_app/screens/notification_screen.dart';
 import 'package:blog_app/screens/all_recent_post_screen.dart';
+import 'package:blog_app/screens/article_detail_screen.dart';
 import 'package:blog_app/screens/forgot_password_screen.dart';
 import 'package:blog_app/screens/home_screen.dart';
 import 'package:blog_app/screens/auth/login_screen.dart';
@@ -17,7 +19,6 @@ import 'package:go_router/go_router.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   return GoRouter(
-    // 1. Start on the splash gate route while checking background storage
     initialLocation: '/splash',
     refreshListenable: authProvider,
     routes: [
@@ -39,39 +40,68 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) => const PasswordSecurityScreen(),
       ),
       GoRoute(
+        path: '/Notification-Screen',
+        builder: (context, state) => const NotificationScreen(),
+      ),
+
+      GoRoute(
         path: '/otp-screen',
-        builder: (context, state) => const OtpScreen(),
+        builder: (context, state) {
+          final String username = state.extra as String;
+
+          return OtpScreen(username: username);
+        },
       ),
       GoRoute(
-        path: '/Forgot-Password-Screen',
+        path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
-        path: '/reset-password-screen',
-        builder: (context, state) => const ResetPasswordScreen(),
+        path: '/reset-password',
+        builder: (context, state) {
+          final Map<String, String> args = state.extra as Map<String, String>;
+
+          return ResetPasswordScreen(
+            email: args['email'] ?? '',
+            token: args['token'] ?? '',
+          );
+        },
       ),
       GoRoute(
-        path: '/Recent-Post-Screen',
+        path: '/recent-posts',
         builder: (context, state) => const RecentPostScreen(),
-      ),
-
-      // 2. Nested Tab Shell Route Architecture
+      ), // 🟢 Standardized path case
+      /// Nested Tab Shell Route Architecture
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          // Wraps all three tabs in your premium floating capsule layout
           return MainDashboardLayout(navigationShell: navigationShell);
         },
         branches: [
-          // Tab Branch 1: Home Blog Feed
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/feed',
                 builder: (context, state) => const HomeScreen(),
+                routes: [
+                  // 🟢 1. Single Post Detail Route (:id placeholder)
+                  GoRoute(
+                    path: 'post/:id', // Full path resolves to: /feed/post/12345
+                    builder: (context, state) {
+                      final postId = state.pathParameters['id'] ?? '';
+                      return ArticleDetailScreen(postId: postId);
+                    },
+                  ),
+
+                  GoRoute(
+                    path: 'author/:authorId/:authorName',
+                    builder: (context, state) {
+                      return const ProfileScreen();
+                    },
+                  ),
+                ],
               ),
             ],
           ),
-          // Tab Branch 2: Bookmarks / Saved Posts
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -80,7 +110,6 @@ GoRouter createRouter(AuthProvider authProvider) {
               ),
             ],
           ),
-          // Tab Branch 3: Creator Hub / Studio
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -92,34 +121,41 @@ GoRouter createRouter(AuthProvider authProvider) {
         ],
       ),
     ],
+
     redirect: (BuildContext context, GoRouterState state) {
       final loggedIn = authProvider.user != null;
       final currentLoc = state.matchedLocation;
 
-      // 3. If we are still initializing/loading storage, stay on the splash screen
-      if (currentLoc == '/splash' && authProvider.isLoading) {
-        return null;
+      // 1. If AuthProvider is actively reading secure storage, lock the user to the splash screen
+      if (authProvider.isLoading) {
+        return '/splash';
       }
 
-      // 4. Whitelist Public Auth Screens so logged-out users can visit them
+      // 2. Define our open-access routes
       final isPublicAuthRoute =
           currentLoc == '/login' ||
           currentLoc == '/register' ||
-          currentLoc == '/Forgot-Password-Screen' ||
+          currentLoc == '/forgot-password' ||
           currentLoc == '/otp-screen' ||
-          currentLoc == '/reset-password-screen';
+          currentLoc == '/reset-password';
 
-      // Protection: Force non-logged-in users back to login if trying to access protected paths
-      if (!loggedIn && !isPublicAuthRoute) {
+      // 3. User is NOT logged in:
+      if (!loggedIn) {
+        // Allow them to navigate anywhere within the public paths
+        if (isPublicAuthRoute) return null;
+        // Kick them back to login if they try accessing protected feed/profile routes
         return '/login';
       }
 
-      // 5. Prevention: If already logged in, route them straight into the primary tab (/feed)
-      // but allow them to stay on sub-pages like /profile-screen or /password-security-screen
-      if (loggedIn && (currentLoc == '/login' || currentLoc == '/splash')) {
+      // 4. User IS logged in:
+      // Prevent authenticated users from going backward to login or splash pages
+      if (currentLoc == '/login' ||
+          currentLoc == '/splash' ||
+          currentLoc == '/register') {
         return '/feed';
       }
 
+      // Allow all other normal target navigations (e.g., /profile-screen, /saved)
       return null;
     },
   );

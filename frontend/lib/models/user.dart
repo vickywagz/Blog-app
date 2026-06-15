@@ -1,15 +1,35 @@
 class User {
-  final String? username;
-  final String? id;
-  final String? password;
+  final String id;
+  final String name;
+  final String email;
+  final String bio;
+  final String profilePicture;
+  final bool isVerified;
+  final String? profileImage;
+  final String username;
 
-  User({this.username, this.id, this.password});
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.bio,
+    required this.username,
+    required this.profilePicture,
+    required this.isVerified,
+    this.profileImage,
+  });
 
-  factory User.fromJson(Map<String, dynamic> parsedJson) {
+  factory User.fromJson(Map<String, dynamic> json) {
+    // Dig inside the 'id' field if wrapped inside getinfo blocks
     return User(
-      id: parsedJson['id'].toString(),
-      username: parsedJson['name'].toString(),
-      password: parsedJson['password'].toString(),
+      id: json['id'] ?? json['_id'] ?? '',
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      bio: json['bio'] ?? '',
+      username: json['user']['username'] ?? '',
+      profilePicture: json['profilePicture'] ?? '',
+      isVerified: json['isVerified'] ?? false,
+      profileImage: json['profileImage'] ?? json['avatar'],
     );
   }
 }

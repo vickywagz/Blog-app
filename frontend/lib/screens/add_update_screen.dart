@@ -16,14 +16,12 @@ class AddUpdateScreen extends StatefulWidget {
 
 class _AddUpdateScreenState extends State<AddUpdateScreen> {
   final _formKey = GlobalKey<FormState>();
-
   final _title = TextEditingController();
   final _body = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-
     if (widget.post != null) {
       _title.text = widget.post!.title;
       _body.text = widget.post!.body;
@@ -31,10 +29,19 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
   }
 
   @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    User user = context.read<AuthProvider>().user!;
-    String author = user.username!;
-    String authorId = user.id!;
+    // 🟢 FIXED: Changed read to watch to avoid framework lifecycle errors inside build()
+    final authProvider = context.watch<AuthProvider>();
+    final User? user = authProvider.user;
+    final String author = user?.name ?? 'Anonymous';
+    final String authorId = user?.id ?? '';
 
     final isLoading = context.watch<PostProvider>().isLoading;
 
@@ -56,18 +63,14 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
+                        onTap: () => Navigator.pop(context),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
                           size: 18,
                           color: Color(0xFF0B3558),
                         ),
                       ),
-
                       const SizedBox(width: 14),
-
                       const Text(
                         'THECURATOR',
                         style: TextStyle(
@@ -76,56 +79,54 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                           color: Color(0xFF0B3558),
                         ),
                       ),
-
                       const Spacer(),
+                      GestureDetector(
+                        onTap: isLoading
+                            ? null
+                            : () async {
+                                if (_formKey.currentState!.validate()) {
+                                  if (widget.post == null) {
+                                    await context
+                                        .read<PostProvider>()
+                                        .createPost(
+                                          _title.text,
+                                          _body.text,
+                                          author,
+                                          authorId,
+                                        );
+                                  } else {
+                                    Post updatedPost = Post(
+                                      id: widget.post!.id,
+                                      authorId: widget.post!.authorId,
+                                      author: widget.post!.author,
+                                      body: _body.text,
+                                      title: _title.text,
+                                      createdAt: widget.post!.createdAt,
+                                      postImage: widget.post!.postImage,
+                                      viewsCount: widget.post!.viewsCount,
+                                      likes: widget.post!.likes,
+                                      savedBy: widget.post!.savedBy,
+                                    );
 
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF004B7A),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: GestureDetector(
-                          onTap: isLoading
-                              ? null
-                              : () async {
-                                  if (_formKey.currentState!.validate()) {
-                                    if (widget.post == null) {
-                                      await context
-                                          .read<PostProvider>()
-                                          .createPost(
-                                            _title.text,
-                                            _body.text,
-                                            author,
-                                            authorId,
-                                          );
-                                    } else {
-                                      // 🟢 FIXED: We pass the existing generated image string forward 
-                                      // so it preserves consistency during a text modification save.
-                                      Post updatedPost = Post(
-                                        id: widget.post!.id,
-                                        authorId: widget.post!.authorId,
-                                        author: widget.post!.author,
-                                        body: _body.text,
-                                        title: _title.text,
-                                        createdAt: widget.post!.createdAt,
-                                        image: widget.post!.image, 
-                                      );
-
-                                      await context
-                                          .read<PostProvider>()
-                                          .updatePost(updatedPost);
-                                    }
-
-                                    _title.clear();
-                                    _body.clear();
-
-                                    Navigator.pop(context);
+                                    await context
+                                        .read<PostProvider>()
+                                        .updatePost(updatedPost);
                                   }
-                                },
+
+                                  _title.clear();
+                                  _body.clear();
+                                  if (mounted) Navigator.pop(context);
+                                }
+                              },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF004B7A),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
                           child: isLoading
                               ? const SizedBox(
                                   height: 16,
@@ -155,6 +156,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                   color: Color(0xFFE5E5E5),
                 ),
 
+                /// MAIN TEXT AREA
                 Expanded(
                   child: Stack(
                     children: [
@@ -174,7 +176,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                         ),
                       ),
 
-                      /// CONTENT
+                      /// CONTENT INPUT FIELDS
                       SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -183,7 +185,6 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            /// TAGS
                             Row(
                               children: [
                                 Container(
@@ -204,9 +205,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                     ),
                                   ),
                                 ),
-
                                 const SizedBox(width: 8),
-
                                 const Text(
                                   'Drafting in Private',
                                   style: TextStyle(
@@ -216,14 +215,12 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 34),
-
-                            /// TITLE
                             TextFormField(
                               controller: _title,
                               style: const TextStyle(
-                                fontSize: 42,
+                                fontSize:
+                                    38, // Slightly reduced to avoid layout constraints
                                 fontWeight: FontWeight.w700,
                                 color: Colors.black87,
                               ),
@@ -236,13 +233,11 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
                               ),
-                              validator: (val) =>
-                                  val!.isEmpty ? 'Title cannot be empty' : null,
+                              validator: (val) => val == null || val.isEmpty
+                                  ? 'Title cannot be empty'
+                                  : null,
                             ),
-
                             const SizedBox(height: 8),
-
-                            /// BLUE LINE
                             Container(
                               height: 2,
                               width: 30,
@@ -251,13 +246,10 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                             ),
-
                             const SizedBox(height: 24),
-
-                            /// BODY
                             TextFormField(
                               controller: _body,
-                              minLines: 14,
+                              minLines: 10,
                               maxLines: null,
                               style: const TextStyle(
                                 fontSize: 16,
@@ -273,8 +265,9 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
                               ),
-                              validator: (val) =>
-                                  val!.isEmpty ? 'Body cannot be empty' : null,
+                              validator: (val) => val == null || val.isEmpty
+                                  ? 'Body cannot be empty'
+                                  : null,
                             ),
                           ],
                         ),
@@ -283,7 +276,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                   ),
                 ),
 
-                /// BOTTOM BAR
+                /// BOTTOM FORMATTING BAR
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -291,26 +284,41 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                   ),
                   decoration: const BoxDecoration(
                     color: Color(0xFFF5F5F7),
-                    border: Border(
-                      top: BorderSide(
-                        color: Color(0xFFE6E6E6),
-                      ),
-                    ),
+                    border: Border(top: BorderSide(color: Color(0xFFE6E6E6))),
                   ),
                   child: Column(
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.format_bold, size: 18),
-                          const SizedBox(width: 14),
-                          const Icon(Icons.format_italic, size: 18),
-                          const SizedBox(width: 14),
-                          const Icon(Icons.link, size: 18),
-                          const SizedBox(width: 14),
-                          const Icon(Icons.format_list_bulleted, size: 18),
-
+                          // 🟢 IMPROVEMENT: Added semantic interaction slots for markdown support later
+                          IconButton(
+                            icon: const Icon(Icons.format_bold, size: 20),
+                            onPressed: () {
+                              /* Future: Bold Selection */
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.format_italic, size: 20),
+                            onPressed: () {
+                              /* Future: Italic Selection */
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.link, size: 20),
+                            onPressed: () {
+                              /* Future: Add Hyperlink */
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.format_list_bulleted,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              /* Future: Add List Bullet */
+                            },
+                          ),
                           const Spacer(),
-
                           const Text(
                             'AUTOSAVED',
                             style: TextStyle(
@@ -319,9 +327,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                               letterSpacing: 0.5,
                             ),
                           ),
-
                           const SizedBox(width: 6),
-
                           Container(
                             height: 6,
                             width: 6,
@@ -332,9 +338,7 @@ class _AddUpdateScreenState extends State<AddUpdateScreen> {
                           ),
                         ],
                       ),
-
-                      const SizedBox(height: 12),
-
+                      const SizedBox(height: 4),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Container(

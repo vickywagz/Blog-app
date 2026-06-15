@@ -1,3 +1,4 @@
+import 'dart:async'; // 🟢 Added: Needed for Timer control mechanics
 import 'package:blog_app/providers/post_provider.dart';
 import 'package:blog_app/widgets/post_list.dart';
 import 'package:flutter/material.dart';
@@ -13,16 +14,25 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final TextEditingController _search;
+  late final _Debouncer _debouncer; // 🟢 Added: Local structural text debouncer
 
   @override
   void initState() {
     super.initState();
     _search = TextEditingController();
+    // 🟢 Initialize with a 500ms safety valve window before striking backend endpoints
+    _debouncer = _Debouncer(delay: const Duration(milliseconds: 500)); 
+    
+    // Initial fetch trigger on system startup pipeline landing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PostProvider>().getAllPost(sortBy: 'recent');
+    });
   }
 
   @override
   void dispose() {
     _search.dispose();
+    _debouncer.dispose(); // 🟢 Added: Wipe background timers cleanly to protect memory lifecycle
     super.dispose();
   }
 
@@ -32,7 +42,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final postProvider = context.watch<PostProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final overlayStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -42,12 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayStyle,
       child: AbsorbPointer(
-        absorbing: context.watch<PostProvider>().isLoading,
+        absorbing: postProvider.isLoading,
         child: Scaffold(
           backgroundColor: const Color(0xFFF8F9FA), 
           body: SafeArea(
-            // 🟢 FIXED: Turned off bottom inset safe zone tracking. 
-            // This allows the scrollable list to fluidly pass behind your floating dashboard bar.
             bottom: false, 
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -74,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Color(0xFF0B3558),
                         ),
                         onPressed: () {
-                          // TODO: Implement notification navigation route sheet presentation
+                          // TODO: Implement notification navigation route
                         },
                       ),
                     ],
@@ -130,11 +140,46 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onPressed: _triggerSearch,
                               ),
                       ),
+                      // 🟢 FIXED: Linked the reactive text inputs straight to the automated text debouncer
                       onChanged: (value) {
-                        setState(() {});
+                        setState(() {}); // Repaints clear/arrow suffix UI items dynamically
+                        
+                        _debouncer.run(() {
+                          _triggerSearch();
+                        });
                       },
                     ),
                   ),
+
+                  // Injected Feed Filter Discover Selection bar layout component
+                  if (_search.text.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _FilterChip(
+                            label: 'Recent Updates',
+                            sortValue: 'recent',
+                            isActive: postProvider.currentSort == 'recent',
+                          ),
+                          const SizedBox(width: 8),
+                          _FilterChip(
+                            label: 'Trending Editorial',
+                            sortValue: 'popular',
+                            isActive: postProvider.currentSort == 'popular',
+                          ),
+                          const SizedBox(width: 8),
+                          _FilterChip(
+                            label: 'Most Liked',
+                            sortValue: 'liked',
+                            isActive: postProvider.currentSort == 'liked',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 22),
 
@@ -153,6 +198,76 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 🟢 ADDED: Lightweight Private Debouncer Utility Class
+class _Debouncer {
+  final Duration delay;
+  Timer? _timer;
+
+  _Debouncer({required this.delay});
+
+  void run(VoidCallback action) {
+    _timer?.cancel(); // Terminate old timers immediately if user keeps typing
+    _timer = Timer(delay, action); // Spawn clean request trigger window execution
+  }
+
+  void dispose() {
+    _timer?.cancel();
+  }
+}
+
+/// Custom UI Feed Filter Capsule Selection Element
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final String sortValue;
+  final bool isActive;
+
+  const _FilterChip({
+    required this.label,
+    required this.sortValue,
+    required this.isActive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        if (!isActive) {
+          context.read<PostProvider>().getAllPost(sortBy: sortValue);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF0B3558) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isActive ? Colors.transparent : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF0B3558).withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive ? Colors.white : const Color(0xFF64748B),
           ),
         ),
       ),

@@ -1,7 +1,7 @@
 import 'package:blog_app/providers/post_provider.dart';
 import 'package:blog_app/widgets/post_card_widget.dart';
-import 'package:blog_app/screens/article_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 class PostList extends StatelessWidget {
@@ -15,9 +15,7 @@ class PostList extends StatelessWidget {
 
     if (isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF00365C),
-        ),
+        child: CircularProgressIndicator(color: Color(0xFF00365C)),
       );
     }
 
@@ -49,25 +47,18 @@ class PostList extends StatelessWidget {
       padding: const EdgeInsets.only(
         top: 6,
         // 🟢 FIXED: Increased padding so the last post cleanly clears the persistent floating nav bar layout shell
-        bottom: 140, 
+        bottom: 140,
       ),
       itemCount: posts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 26),
+      separatorBuilder: (_, _) => const SizedBox(height: 26),
       itemBuilder: (context, i) {
         final currentPost = posts[i];
-        
+
         return GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ArticleDetailScreen(),
-              ),
-            );
+            context.go('/feed/post/${currentPost.id}');
           },
-          child: PostCardWidget(
-            post: currentPost,
-          ),
+          child: PostCardWidget(post: currentPost),
         );
       },
     );

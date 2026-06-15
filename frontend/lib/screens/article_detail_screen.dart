@@ -1,7 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:blog_app/providers/post_provider.dart'; // 🟢 Assuming this is your provider path
 
-class ArticleDetailScreen extends StatelessWidget {
-  const ArticleDetailScreen({super.key});
+class ArticleDetailScreen extends StatefulWidget {
+  final String postId; // 🟢 Pass your actual dynamic Post ID from GoRouter or Navigator params
+
+  const ArticleDetailScreen({
+    super.key,
+    required this.postId,
+  });
+
+  @override
+  State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
+}
+
+class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
+  late final ScrollController _scrollController;
+  bool _hasTriggeredView = false; // 🟢 Safety valve flag ensuring it fires exactly once per read session
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose(); // 🟢 Prevent memory leaks
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    // Check if the scroll position has reached or surpassed the maximum scrollable depth
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 50) { 
+      if (!_hasTriggeredView) {
+        setState(() {
+          _hasTriggeredView = true;
+        });
+        
+        // 🟢 Asynchronously fire your backend view update patch without disrupting the user layout thread
+        _incrementViewCount();
+      }
+    }
+  }
+
+  Future<void> _incrementViewCount() async {
+    try {
+      // 🟢 Calls your provider wrapper logic which maps directly to: PATCH /post/:id/view
+      await context.read<PostProvider>().incrementPostView(widget.postId);
+      print('🟢 Analytics Engine: Post view successfully recorded at footer termination.');
+    } catch (e) {
+      print('🔴 Analytics Engine: Error tracking view event: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +94,7 @@ class ArticleDetailScreen extends StatelessWidget {
       /// 2. SCROLLABLE ARTICLE BODY
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController, // 🟢 Linked our structural position listener here
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
@@ -99,11 +153,11 @@ class ArticleDetailScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
+                      const Text(
                         'Editor-in-Chief  •  6 min read',
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF7A8087),
+                          color: Color(0xFF7A8087),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -362,11 +416,11 @@ class ArticleDetailScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               /// Publication Timestamp Stamp
-              Text(
+              const Text(
                 'Last updated Oct 24, 2023',
                 style: TextStyle(
                   fontSize: 12,
-                  color: const Color(0xFF9096A0),
+                  color: Color(0xFF9096A0),
                   fontWeight: FontWeight.w500,
                 ),
               ),
