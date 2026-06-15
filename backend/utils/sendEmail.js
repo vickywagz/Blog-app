@@ -1,13 +1,20 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns");
 
-// 1. Configure the email transporter using explicit host/port configs to bypass cloud firewalls
+// 1. Configure the transporter to explicitly force IPv4 lookups
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
-  secure: false,
+  secure: false, // Must be false for Port 587
+  // 🟢 FORCES IPv4: Tells Node's DNS resolver to skip IPv6 resolution completely
+  lookup: (hostname, options, callback) => {
+    dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+      callback(err, address, family);
+    });
+  },
   auth: {
-    user: process.env.EMAIL_USER, // Your Gmail address
-    pass: process.env.EMAIL_PASS, // Your Gmail App Password
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS, 
   },
 });
 
