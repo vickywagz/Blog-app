@@ -1,5 +1,5 @@
 const User = require("../models/user");
-const Post = require("../models/post"); 
+const Post = require("../models/post");
 const Notification = require("../models/Notification");
 const sendEmail = require("../utils/sendEmail");
 const { uploadToCloudinary } = require("../utils/cloudinaryStorage");
@@ -25,6 +25,7 @@ const createNotificationHook = async (recipientId, senderId, type, postId) => {
 };
 
 // 🟢 REGISTER A NEW USER & DISPATCH OTP (WITH DEV-MODE LOG FALLBACK)
+// 🟢 REGISTER A NEW USER & DISPATCH OTP (FINALISED ASYNC FIREWALL BYPASS)
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -56,28 +57,26 @@ exports.register = async (req, res) => {
 
     await user.save();
 
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: "Verify your account - The Curator",
-        message: `Your verification code is: ${otp}. It expires in 10 minutes.`,
-      });
+    // 1. Fire email delivery to the background.
+    // .catch() keeps background connection errors from crashing your Node app.
+    sendEmail({
+      email: user.email,
+      subject: "Verify your account - The Curator",
+      message: `Your verification code is: ${otp}. It expires in 10 minutes.`,
+    }).catch((err) => {
+      console.log(
+        "ℹ️ Background email delivery timed out via Render firewall. Fallback active.",
+      );
+    });
 
-      return res.status(201).json({
-        success: true,
-        msg: "Registration initiated! Please check your email for the OTP verification code.",
-      });
-    } catch (emailErr) {
-      // 🟢 DEV-MODE BYPASS: Render firewalls block SMTP sockets on free instances.
-      // We log the active verification code locally to the console and allow the app to advance.
-      console.log("⚠️ Outbound SMTP email delivery failed or was blocked by host.");
-      console.log(`🚀 [DEV MODE OTP BYPASS FOR ${user.email}] ➡️ ${otp} ⬅️`);
+    // 2. Print token directly to Render console immediately
+    console.log(`🚀 [DEV MODE OTP BYPASS FOR ${user.email}] ➡️ ${otp} ⬅️`);
 
-      return res.status(201).json({
-        success: true,
-        msg: `[Dev Mode] Registration initiated! Use code ${otp} to verify your account.`,
-      });
-    }
+    // 3. Respond immediately to Flutter in milliseconds (Bypasses the 10s timeout entirely!)
+    return res.status(201).json({
+      success: true,
+      msg: `[Dev Mode] Registration initiated! Use code ${otp} to verify your account.`,
+    });
   } catch (error) {
     console.error(error);
     return res
@@ -85,19 +84,16 @@ exports.register = async (req, res) => {
       .json({ success: false, msg: "Server error during registration" });
   }
 };
-
 // 🟢 VERIFY ACCOUNT OTP
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otpCode } = req.body;
 
     if (!email || !otpCode) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          msg: "Please enter your email and the verification code",
-        });
+      return res.status(400).json({
+        success: false,
+        msg: "Please enter your email and the verification code",
+      });
     }
 
     const user = await User.findOne({ email });
@@ -170,12 +166,10 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        msg: "Server error updating profile parameters",
-      });
+    return res.status(500).json({
+      success: false,
+      msg: "Server error updating profile parameters",
+    });
   }
 };
 
@@ -308,12 +302,10 @@ exports.toggleSavePost = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        msg: "Server error toggling bookmark save status",
-      });
+    return res.status(500).json({
+      success: false,
+      msg: "Server error toggling bookmark save status",
+    });
   }
 };
 
@@ -331,12 +323,10 @@ exports.getNotifications = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        msg: "Server error retrieving notifications feed",
-      });
+    return res.status(500).json({
+      success: false,
+      msg: "Server error retrieving notifications feed",
+    });
   }
 };
 
@@ -388,17 +378,21 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ success: false, msg: 'Please provide an email address' });
+      return res
+        .status(400)
+        .json({ success: false, msg: "Please provide an email address" });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, msg: 'No account found with this email' });
+      return res
+        .status(404)
+        .json({ success: false, msg: "No account found with this email" });
     }
 
     // Generate a 6-digit recovery code
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Set token expiration window to 10 minutes
     user.passwordResetToken = resetCode;
     user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
@@ -407,21 +401,33 @@ exports.forgotPassword = async (req, res) => {
     try {
       await sendEmail({
         email: user.email,
-        subject: 'Password Reset Verification Code - The Curator',
+        subject: "Password Reset Verification Code - The Curator",
         message: `You requested a password reset. Your recovery code is: ${resetCode}. It expires in 10 minutes.`,
       });
 
-      return res.status(200).json({ success: true, msg: 'Recovery code dispatched to your email!' });
+      return res
+        .status(200)
+        .json({
+          success: true,
+          msg: "Recovery code dispatched to your email!",
+        });
     } catch (emailErr) {
       user.passwordResetToken = null;
       user.passwordResetExpires = null;
       await user.save();
       console.error(emailErr);
-      return res.status(500).json({ success: false, msg: 'Failed to dispatch recovery email' });
+      return res
+        .status(500)
+        .json({ success: false, msg: "Failed to dispatch recovery email" });
     }
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, msg: 'Server error processing password reset request' });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        msg: "Server error processing password reset request",
+      });
   }
 };
 
@@ -431,30 +437,49 @@ exports.resetPassword = async (req, res) => {
     const { email, otpCode, newPassword } = req.body;
 
     if (!email || !otpCode || !newPassword) {
-      return res.status(400).json({ success: false, msg: 'Please enter all fields' });
+      return res
+        .status(400)
+        .json({ success: false, msg: "Please enter all fields" });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, msg: 'User profile not found' });
+      return res
+        .status(404)
+        .json({ success: false, msg: "User profile not found" });
     }
 
     // Verify code validation parameters and active time window expiration frames
-    if (user.passwordResetToken !== otpCode || new Date() > user.passwordResetExpires) {
-      return res.status(400).json({ success: false, msg: 'Invalid or expired recovery code' });
+    if (
+      user.passwordResetToken !== otpCode ||
+      new Date() > user.passwordResetExpires
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "Invalid or expired recovery code" });
     }
 
     // Overwrite old value (triggers the pre-save hook automatically to encrypt it)
     user.password = newPassword;
-    
+
     // Clear out recovery token slots from memory completely
     user.passwordResetToken = null;
     user.passwordResetExpires = null;
     await user.save();
 
-    return res.status(200).json({ success: true, msg: 'Password updated successfully! You can now log in.' });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        msg: "Password updated successfully! You can now log in.",
+      });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, msg: 'Server error updating security parameters' });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        msg: "Server error updating security parameters",
+      });
   }
 };

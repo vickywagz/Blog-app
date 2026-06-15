@@ -25,18 +25,40 @@ class AuthService {
     }
   }
 
-  Future<Response?> register(String name, String email, String password) async {
+ Future<Response?> register(String name, String email, String password) async {
+  print('🌐 [AuthService] Initiating post request to /register...');
+  print('📦 [AuthService] Payload data: {name: $name, email: $email}');
+  
   try {
-    return await _dio.post(
+    final response = await _dio.post(
       '/register',
       data: {
         'name': name,
         'email': email,
         'password': password,
       },
+      options: Options(
+        validateStatus: (status) {
+          print('🚦 [AuthService] Server responded with HTTP Status Code: $status');
+          return status == 200 || status == 201 || status == 400 || status == 500;
+        },
+      ),
     );
+    
+    print('✅ [AuthService] Network request finished without crashing Dio.');
+    print('📄 [AuthService] Response Raw Data Map: ${response.data}');
+    return response;
+
   } on DioException catch (ex) {
+    print('❌ [AuthService] A DioException was thrown!');
+    print('❌ [AuthService] Exception Message: ${ex.message}');
+    print('❌ [AuthService] Exception Type: ${ex.type}');
+    print('❌ [AuthService] Response field state: ${ex.response}');
+    print('❌ [AuthService] Response Body Data: ${ex.response?.data}');
     return ex.response;
+  } catch (e) {
+    print('💥 [AuthService] A totally unexpected system error occurred: $e');
+    return null;
   }
 }
 

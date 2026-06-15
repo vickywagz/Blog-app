@@ -80,36 +80,69 @@ class AuthProvider with ChangeNotifier {
 
   // 🟢 UPDATE: Accept name, email, and password parameters
   Future<AuthResult> register(
-    String name,
-    String email,
-    String password,
-  ) async {
-    _isLoading = true;
-    notifyListeners();
+  String name,
+  String email,
+  String password,
+) async {
+  print('🚀 [AuthProvider] Method started.');
+  _isLoading = true;
+  notifyListeners();
 
-    try {
-      // Forward all three fields to your AuthService network client
-      Response? userdata = await AuthService().register(name, email, password);
-      bool success = userdata?.data['success'] == true;
+  try {
+    print('⏳ [AuthProvider] Awaiting AuthService().register...');
+    Response? userdata = await AuthService().register(name, email, password);
+    
+    print('📥 [AuthProvider] AuthService returned control. Data check below:');
+    print('📥 [AuthProvider] userdata variable is null? => ${userdata == null}');
+    print('📥 [AuthProvider] userdata status code => ${userdata?.statusCode}');
+    print('📥 [AuthProvider] userdata body map => ${userdata?.data}');
 
-      if (success) {
-        return AuthResult(
-          success: true,
-          message: userdata?.data['msg'] ?? 'Account created successfully.',
-        );
-      } else {
-        return AuthResult(
-          success: false,
-          message: userdata?.data['msg'] ?? 'Registration failed.',
-        );
-      }
-    } catch (e) {
-      return AuthResult(success: false, message: 'Network connection failed.');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    bool success = userdata?.data['success'] == true;
+    print('📥 [AuthProvider] calculated "success" boolean evaluates to: $success');
+
+    if (success) {
+      print('🎉 [AuthProvider] Success branch matched!');
+      return AuthResult(
+        success: true,
+        message: userdata?.data['msg'] ?? 'Account created successfully.',
+      );
+    } else {
+      print('⚠️ [AuthProvider] Server explicitly returned false success property.');
+      return AuthResult(
+        success: false,
+        message: userdata?.data['msg'] ?? 'Registration failed.',
+      );
     }
+  } on DioException catch (ex) {
+    print('🚨 [AuthProvider] Block trapped inside an "on DioException" catch wrapper!');
+    if (ex.response != null && ex.response?.data != null) {
+      final responseData = ex.response?.data;
+      final bool isSuccess = responseData['success'] == true;
+      final String serverMessage = responseData['msg'] ?? 'Registration failed.';
+      
+      print('🚨 [AuthProvider] Pulled data from exception response context successfully.');
+      print('🚨 [AuthProvider] Extracted Message: $serverMessage, Success value: $isSuccess');
+
+      return AuthResult(
+        success: isSuccess,
+        message: serverMessage,
+      );
+    }
+    
+    print('🚨 [AuthProvider] No response data present inside the exception frame.');
+    return AuthResult(success: false, message: 'Network connection failed.');
+  } catch (e) {
+    print('💥 [AuthProvider] Caught general execution flow failure: $e');
+    return AuthResult(
+      success: false,
+      message: 'An unexpected error occurred.',
+    );
+  } finally {
+    print('🏁 [AuthProvider] Entering finally block. Setting loading flag to false.');
+    _isLoading = false;
+    notifyListeners();
   }
+}
 
   Future<void> getUserInfo() async {
     try {
