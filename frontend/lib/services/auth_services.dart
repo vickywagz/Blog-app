@@ -28,7 +28,7 @@ class AuthService {
   Future<Response?> register(String name, String email, String password) async {
   try {
     return await _dio.post(
-      '/adduser',
+      '/register',
       data: {
         'name': name,
         'email': email,

@@ -1,8 +1,10 @@
 const nodemailer = require("nodemailer");
 
-// 1. Configure the email transporter using environment variables
+// 1. Configure the email transporter using explicit host/port configs to bypass cloud firewalls
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER, // Your Gmail address
     pass: process.env.EMAIL_PASS, // Your Gmail App Password
@@ -20,17 +22,15 @@ const sendEmail = async ({ email, subject, message }) => {
   try {
     await transporter.sendMail({
       from: `"The Curator" <${process.env.EMAIL_USER}>`,
-      to: email, // 🟢 Maps to the parameter key your controller expects
+      to: email,
       subject: subject,
-      text: message, // Standard text mode
-      // Optional: If you want to use rich HTML templates later, uncomment below:
-      // html: `<p>${message}</p>`, 
+      text: message,
     });
 
     console.log(`📧 Real verification email safely dispatched to: ${email}`);
   } catch (error) {
     console.error("❌ NODEMAILER EMAIL DELIVERY CRASH:", error);
-    throw error; // Rethrow so your controller catch block can capture failures
+    throw error;
   }
 };
 
