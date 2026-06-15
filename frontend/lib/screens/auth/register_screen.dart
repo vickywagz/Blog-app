@@ -1,7 +1,7 @@
 import 'package:blog_app/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart'; // Safe stack routing management
+import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -11,33 +11,46 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // 1. Instantiated safely inside state parameters to prevent controller leakage
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _usernameController;
+  
+  // 🟢 Added the missing field controllers to match your Mongoose schema
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
   late final TextEditingController _repasswordController;
 
-  // 2. Holds inline backend response errors dynamically
   String? _serverRegistrationError;
 
   @override
   void initState() {
     super.initState();
-    _usernameController = TextEditingController();
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
     _passwordController = TextEditingController();
     _repasswordController = TextEditingController();
+
+    _emailController.addListener(_clearServerError);
   }
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.removeListener(_clearServerError);
+    _nameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _repasswordController.dispose();
     super.dispose();
   }
 
+  void _clearServerError() {
+    if (_serverRegistrationError != null) {
+      setState(() {
+        _serverRegistrationError = null;
+      });
+    }
+  }
+
   Future<void> _handleRegistration() async {
-    // Clear old errors before evaluating
     setState(() {
       _serverRegistrationError = null;
     });
@@ -46,22 +59,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final authProvider = context.read<AuthProvider>();
 
-    // Call the updated provider that passes back AuthResult details
+    // 🟢 UPDATE: Pass the collected name and email to your provider method
+    // Note: Make sure your AuthProvider.register signature matches: register(name, email, password)
     final result = await authProvider.register(
-      _usernameController.text.trim(),
+      _nameController.text.trim(),
+      _emailController.text.trim().toLowerCase(),
       _passwordController.text,
     );
 
     if (result.success) {
       if (mounted) {
-        context.push('/otp', extra: _usernameController.text.trim());
+        // Navigates to your OTP verification view passing along the email
+        context.push('/otp-screen', extra: _emailController.text.trim());
       }
     } else {
-      // 3. Intercept server errors and drop them directly beneath the username/form area
       setState(() {
         _serverRegistrationError = result.message;
       });
-      // Re-trigger validation rules to paint the error text red inline
       _formKey.currentState!.validate();
     }
   }
@@ -117,11 +131,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 42),
 
-                  /// USERNAME FIELD
+                  /// 🟢 NEW: FULL NAME FIELD
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'USERNAME',
+                      'FULL NAME',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -132,16 +146,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    controller: _usernameController,
+                    controller: _nameController,
                     decoration: InputDecoration(
-                      hintText: 'Enter username',
+                      hintText: 'Enter your full name',
                       hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 18,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -151,8 +162,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       if (value == null || value.trim().isEmpty) {
                         return '* Required';
                       }
-                      // Returns the database uniqueness conflict messages here instantly
-                      return _serverRegistrationError;
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  /// 🟢 NEW: EMAIL FIELD
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'EMAIL ADDRESS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your email',
+                      hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return '* Required';
+                      }
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                        return 'Enter a valid email address';
+                      }
+                      return _serverRegistrationError; // Displays Atlas uniqueness error here if email exists
                     },
                   ),
 
@@ -180,10 +231,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 18,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -195,9 +243,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       if (value.length < 6) {
                         return 'Password should be at least 6 characters';
-                      }
-                      if (value.length > 15) {
-                        return 'Password should not be greater than 15 characters';
                       }
                       return null;
                     },
@@ -227,10 +272,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintStyle: const TextStyle(color: Color(0xFFB2B7BD)),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 18,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -240,8 +282,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       if (value == null || value.isEmpty) {
                         return '* Required';
                       }
-                      if (_passwordController.text !=
-                          _repasswordController.text) {
+                      if (_passwordController.text != _repasswordController.text) {
                         return 'Passwords do not match';
                       }
                       return null;
@@ -259,9 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1F2328),
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: const Color(
-                          0xFF1F2328,
-                        ).withOpacity(0.6),
+                        disabledBackgroundColor: const Color(0xFF1F2328).withOpacity(0.6),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -294,17 +333,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text(
                         'Already registered? ',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF8A9097),
-                        ),
+                        style: TextStyle(fontSize: 14, color: Color(0xFF8A9097)),
                       ),
                       GestureDetector(
-                        onTap: isLoading
-                            ? null
-                            : () {
-                                context.pop();
-                              },
+                        onTap: isLoading ? null : () => context.pop(),
                         child: const Text(
                           'Log in',
                           style: TextStyle(

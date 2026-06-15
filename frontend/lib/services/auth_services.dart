@@ -25,16 +25,20 @@ class AuthService {
     }
   }
 
-  Future<Response?> register(String username, String password) async {
-    try {
-      return await _dio.post(
-        '/adduser',
-        data: {'name': username, 'password': password},
-      );
-    } on DioException catch (ex) {
-      return ex.response;
-    }
+  Future<Response?> register(String name, String email, String password) async {
+  try {
+    return await _dio.post(
+      '/adduser',
+      data: {
+        'name': name,
+        'email': email,
+        'password': password,
+      },
+    );
+  } on DioException catch (ex) {
+    return ex.response;
   }
+}
 
   Future<Response?> verifyOtp(String username, String otpCode) async {
     try {

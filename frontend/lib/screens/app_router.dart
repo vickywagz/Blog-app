@@ -40,15 +40,14 @@ GoRouter createRouter(AuthProvider authProvider) {
         builder: (context, state) => const PasswordSecurityScreen(),
       ),
       GoRoute(
-        path: '/Notification-Screen',
+        // 🟢 FIX: Lowercased this path to standard routing casing conventions ('/notification-screen')
+        path: '/notification-screen',
         builder: (context, state) => const NotificationScreen(),
       ),
-
       GoRoute(
         path: '/otp-screen',
         builder: (context, state) {
           final String username = state.extra as String;
-
           return OtpScreen(username: username);
         },
       ),
@@ -60,7 +59,6 @@ GoRouter createRouter(AuthProvider authProvider) {
         path: '/reset-password',
         builder: (context, state) {
           final Map<String, String> args = state.extra as Map<String, String>;
-
           return ResetPasswordScreen(
             email: args['email'] ?? '',
             token: args['token'] ?? '',
@@ -70,7 +68,8 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/recent-posts',
         builder: (context, state) => const RecentPostScreen(),
-      ), // 🟢 Standardized path case
+      ),
+
       /// Nested Tab Shell Route Architecture
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -83,15 +82,13 @@ GoRouter createRouter(AuthProvider authProvider) {
                 path: '/feed',
                 builder: (context, state) => const HomeScreen(),
                 routes: [
-                  // 🟢 1. Single Post Detail Route (:id placeholder)
                   GoRoute(
-                    path: 'post/:id', // Full path resolves to: /feed/post/12345
+                    path: 'post/:id',
                     builder: (context, state) {
                       final postId = state.pathParameters['id'] ?? '';
                       return ArticleDetailScreen(postId: postId);
                     },
                   ),
-
                   GoRoute(
                     path: 'author/:authorId/:authorName',
                     builder: (context, state) {
@@ -126,8 +123,7 @@ GoRouter createRouter(AuthProvider authProvider) {
       final loggedIn = authProvider.user != null;
       final currentLoc = state.matchedLocation;
 
-      // 1. If AuthProvider is actively reading secure storage, lock the user to the splash screen
-      if (authProvider.isLoading) {
+      if (authProvider.isLoading && currentLoc == '/splash') {
         return '/splash';
       }
 
@@ -141,21 +137,23 @@ GoRouter createRouter(AuthProvider authProvider) {
 
       // 3. User is NOT logged in:
       if (!loggedIn) {
+        // If they are on the splash screen and loading finishes, send them to login
+        if (currentLoc == '/splash') return '/login';
         // Allow them to navigate anywhere within the public paths
         if (isPublicAuthRoute) return null;
-        // Kick them back to login if they try accessing protected feed/profile routes
+        // Kick them back to login if they try accessing protected areas
         return '/login';
       }
 
       // 4. User IS logged in:
-      // Prevent authenticated users from going backward to login or splash pages
+      // Prevent authenticated users from going backward to auth or splash pages
       if (currentLoc == '/login' ||
           currentLoc == '/splash' ||
           currentLoc == '/register') {
         return '/feed';
       }
 
-      // Allow all other normal target navigations (e.g., /profile-screen, /saved)
+      // Allow all other normal target navigations
       return null;
     },
   );
