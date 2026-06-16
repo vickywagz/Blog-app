@@ -61,7 +61,6 @@ var UserSchema = new Schema(
 // --- PRE-SAVE PASSWORD HASHING HOOK ---
 UserSchema.pre("save", function (next) {
   var user = this;
-  // 🟢 FIX: Changed backticks to a standard string literal for bulletproof modification tracking
   if (this.isModified('password') || this.isNew) { 
     bcrypt.genSalt(10, function (err, salt) {
       if (err) {
@@ -73,7 +72,7 @@ UserSchema.pre("save", function (next) {
         }
         user.password = hash;
         next();
-      });
+      }	);
     });
   } else {
     next();
@@ -82,7 +81,6 @@ UserSchema.pre("save", function (next) {
 
 // --- HELPER METHODS ---
 
-// 🟢 MODERNIZED: Uses async/await with bcrypt instead of the old 'cb' callback parameter
 UserSchema.methods.comparePassword = async function (password) {
   try {
     const isMatch = await bcrypt.compare(password, this.password);
@@ -92,11 +90,10 @@ UserSchema.methods.comparePassword = async function (password) {
   }
 };
 
-// 🟢 NEW: Generates the JWT authentication token right from the user instance
 UserSchema.methods.generateJwtToken = function () {
   const jwt = require("jsonwebtoken");
   
-  // 🟢 FIX: Use the exact environment variable your Passport config uses!
+  // 🟢 FIXED: Stays fundamentally identical to the updated Passport config file verification mechanism
   const secretKey = process.env.SECRET || "secret"; 
   
   return "Bearer " + jwt.sign(
