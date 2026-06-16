@@ -71,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _formKey.currentState!.validate();
     } else {
-      context.go('/dashboard');
+      context.go('/feed');
     }
   }
 

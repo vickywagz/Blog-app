@@ -38,57 +38,72 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-Future<AuthResult> login(String email, String password) async {
-  print('🚀 [AuthProvider] login method started for: $email');
-  _isLoading = true;
-  notifyListeners();
-
-  try {
-    print('⏳ [AuthProvider] Awaiting AuthService().login...');
-    Response? userdata = await AuthService().login(email, password);
-
-    print('📥 [AuthProvider] response status code => ${userdata?.statusCode}');
-
-    if (userdata != null && userdata.data != null) {
-      // 🟢 FIXED: Crash Guard. Check if response is a Map or JSON layout string
-      if (userdata.data is! Map) {
-        print('⚠️ [AuthProvider] Server returned a non-JSON payload format (likely a 404 or 500 HTML error page).');
-        return AuthResult(
-          success: false,
-          message: 'Server route mismatch (HTTP ${userdata.statusCode}). Check endpoint settings.',
-        );
-      }
-
-      // Safe to treat as Map now!
-      bool isAuthenticate = userdata.data['success'] == true;
-      print('📥 [AuthProvider] Calculated authentication status flag: $isAuthenticate');
-
-      if (isAuthenticate) {
-        final token = userdata.data['token'];
-        if (token != null) {
-          await storage.write(key: 'token', value: token);
-          print('🔒 [AuthProvider] JWT Token written securely to storage.');
-        }
-        
-        await getUserInfo();
-        return AuthResult(success: true, message: 'Login successful');
-      } else {
-        return AuthResult(
-          success: false,
-          message: userdata.data['msg'] ?? 'Login failed. Please verify credentials.',
-        );
-      }
-    }
-    
-    return AuthResult(success: false, message: 'Server returned an empty response.');
-  } catch (error) {
-    print('💥 [AuthProvider] Catch block intercepted failure: $error');
-    return AuthResult(success: false, message: 'An unexpected processing error occurred.');
-  } finally {
-    _isLoading = false;
+  Future<AuthResult> login(String email, String password) async {
+    print('🚀 [AuthProvider] login method started for: $email');
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      print('⏳ [AuthProvider] Awaiting AuthService().login...');
+      Response? userdata = await AuthService().login(email, password);
+
+      print(
+        '📥 [AuthProvider] response status code => ${userdata?.statusCode}',
+      );
+
+      if (userdata != null && userdata.data != null) {
+        // 🟢 FIXED: Crash Guard. Check if response is a Map or JSON layout string
+        if (userdata.data is! Map) {
+          print(
+            '⚠️ [AuthProvider] Server returned a non-JSON payload format (likely a 404 or 500 HTML error page).',
+          );
+          return AuthResult(
+            success: false,
+            message:
+                'Server route mismatch (HTTP ${userdata.statusCode}). Check endpoint settings.',
+          );
+        }
+
+        // Safe to treat as Map now!
+        bool isAuthenticate = userdata.data['success'] == true;
+        print(
+          '📥 [AuthProvider] Calculated authentication status flag: $isAuthenticate',
+        );
+
+        if (isAuthenticate) {
+          final token = userdata.data['token'];
+          if (token != null) {
+            await storage.write(key: 'token', value: token);
+            print('🔒 [AuthProvider] JWT Token written securely to storage.');
+          }
+
+          await getUserInfo();
+          return AuthResult(success: true, message: 'Login successful');
+        } else {
+          return AuthResult(
+            success: false,
+            message:
+                userdata.data['msg'] ??
+                'Login failed. Please verify credentials.',
+          );
+        }
+      }
+
+      return AuthResult(
+        success: false,
+        message: 'Server returned an empty response.',
+      );
+    } catch (error) {
+      print('💥 [AuthProvider] Catch block intercepted failure: $error');
+      return AuthResult(
+        success: false,
+        message: 'An unexpected processing error occurred.',
+      );
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
-}
 
   // 🟢 UPDATE: Accept name, email, and password parameters
   Future<AuthResult> register(
@@ -175,15 +190,41 @@ Future<AuthResult> login(String email, String password) async {
   }
 
   Future<void> getUserInfo() async {
+    print('⏳ [AuthProvider] getUserInfo pipeline started...');
     try {
       var res = await AuthService().getInfo();
-      if (res != null && res.data != null && res.data['success'] == true) {
-        _user = User.fromJson(res.data);
-      } else {
+
+      print('📥 [AuthProvider] getInfo HTTP status code => ${res?.statusCode}');
+      print('📥 [AuthProvider] getInfo server body data => ${res?.data}');
+
+      // 🟢 FIX: Handle cases where server returns raw text string like "Unauthorized" instead of a Map
+      if (res == null || res.data == null || res.data is! Map) {
+        print(
+          '⚠️ [AuthProvider] Server returned empty or raw non-JSON data (e.g., HTTP 401 text string).',
+        );
         _user = null;
-        await storage.delete(key: 'token');
+        return;
+      }
+
+      // Safe to perform map key checking now!
+      if (res.data['success'] == true) {
+        // Extract 'user' block if your API nests user data fields
+        final userDataMap = res.data['user'] ?? res.data;
+
+        _user = User.fromJson(userDataMap);
+        print(
+          '🎉 [AuthProvider] Profile layout parsed successfully! Current User ID: ${_user?.id}',
+        );
+      } else {
+        print(
+          '⚠️ [AuthProvider] Server explicitly rejected token validation profile load.',
+        );
+        _user = null;
       }
     } catch (e) {
+      print(
+        '💥 [AuthProvider] Critical exception crashed getUserInfo processing: $e',
+      );
       _user = null;
     }
   }
