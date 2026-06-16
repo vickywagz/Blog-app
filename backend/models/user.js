@@ -72,7 +72,7 @@ UserSchema.pre("save", function (next) {
         }
         user.password = hash;
         next();
-      }	);
+      } );
     });
   } else {
     next();
@@ -93,10 +93,10 @@ UserSchema.methods.comparePassword = async function (password) {
 UserSchema.methods.generateJwtToken = function () {
   const jwt = require("jsonwebtoken");
   
-  // 🟢 FIXED: Stays fundamentally identical to the updated Passport config file verification mechanism
   const secretKey = process.env.SECRET || "secret"; 
   
-  return "Bearer " + jwt.sign(
+  // 🟢 FIXED: "Bearer " concatenation removed. Returns only the pure token hash string.
+  return jwt.sign(
     { id: this._id, email: this.email, name: this.name }, 
     secretKey, 
     { expiresIn: "7d" }
