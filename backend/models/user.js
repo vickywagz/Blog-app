@@ -81,13 +81,30 @@ UserSchema.pre("save", function (next) {
 });
 
 // --- HELPER METHODS ---
-UserSchema.methods.comparePassword = function (password, cb) {
-  bcrypt.compare(password, this.password, function (err, isMatch) {
-    if (err) {
-      return cb(err);
-    }
-    cb(null, isMatch);
-  });
+
+// 🟢 MODERNIZED: Uses async/await with bcrypt instead of the old 'cb' callback parameter
+UserSchema.methods.comparePassword = async function (password) {
+  try {
+    const isMatch = await bcrypt.compare(password, this.password);
+    return isMatch;
+  } catch (err) {
+    throw err;
+  }
+};
+
+// 🟢 NEW: Generates the JWT authentication token right from the user instance
+UserSchema.methods.generateJwtToken = function () {
+  const jwt = require("jsonwebtoken");
+  
+  // Replace 'secret' with your real environment variable (e.g., process.env.JWT_SECRET) if configured
+  const secretKey = "secret"; 
+  
+  // Returns standard Bearer string structure for Passport strategy matching
+  return "Bearer " + jwt.sign(
+    { id: this._id, email: this.email, name: this.name }, 
+    secretKey, 
+    { expiresIn: "7d" } // Token remains valid for 7 active tracking days
+  );
 };
 
 module.exports = mongoose.model("User", UserSchema);
