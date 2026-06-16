@@ -96,14 +96,13 @@ UserSchema.methods.comparePassword = async function (password) {
 UserSchema.methods.generateJwtToken = function () {
   const jwt = require("jsonwebtoken");
   
-  // Replace 'secret' with your real environment variable (e.g., process.env.JWT_SECRET) if configured
-  const secretKey = "secret"; 
+  // 🟢 FIX: Use the exact environment variable your Passport config uses!
+  const secretKey = process.env.SECRET || "secret"; 
   
-  // Returns standard Bearer string structure for Passport strategy matching
   return "Bearer " + jwt.sign(
     { id: this._id, email: this.email, name: this.name }, 
     secretKey, 
-    { expiresIn: "7d" } // Token remains valid for 7 active tracking days
+    { expiresIn: "7d" }
   );
 };
 
