@@ -12,70 +12,65 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Properly managed inside the Widget state lifecycle
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _usernameController;
+
+  // 🟢 FIXED: Renamed controller explicitly to match our database email parameter
+  late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
 
-  // Inline Error Strings updated dynamically by the backend catch block
-  String? _serverUsernameError;
+  String? _serverEmailError;
   String? _serverPasswordError;
 
   @override
   void initState() {
     super.initState();
-    _usernameController = TextEditingController();
+    _emailController = TextEditingController();
     _passwordController = TextEditingController();
   }
 
   @override
   void dispose() {
-    // Prevent system leaks
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
     setState(() {
-      _serverUsernameError = null;
+      _serverEmailError = null;
       _serverPasswordError = null;
     });
 
     if (!_formKey.currentState!.validate()) return;
 
-    // Trigger login action inside AuthProvider
-    // The provider should handle calling /authenticate and saving the JWT to secure storage
+    // 🟢 FIXED: Sends clean email controller input directly to updated AuthProvider
     final result = await context.read<AuthProvider>().login(
-      _usernameController.text.trim(),
+      _emailController.text.trim(),
       _passwordController.text,
     );
 
     if (!mounted) return;
 
-    // If the backend sent an error, intercept it here
     if (!result.success) {
       final errorMessage = result.message.toLowerCase();
 
       setState(() {
+        // 🟢 FIXED: Checks for explicit email matching conditions across server responses
         if (errorMessage.contains('user') ||
-            errorMessage.contains('name') ||
+            errorMessage.contains('email') ||
             errorMessage.contains('exist') ||
             errorMessage.contains('find')) {
-          _serverUsernameError = result.message;
+          _serverEmailError = result.message;
         } else if (errorMessage.contains('password') ||
             errorMessage.contains('invalid')) {
           _serverPasswordError = result.message;
         } else {
-          // Fallback for generic errors (e.g. network/server errors)
-          _serverUsernameError = result.message;
+          _serverEmailError = result.message;
         }
       });
 
-      // Re-run the form validator to show the backend messages inline
       _formKey.currentState!.validate();
     } else {
-      // Clear navigation history stack completely and route them to your landing workspace
       context.go('/dashboard');
     }
   }
@@ -139,11 +134,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 48),
 
-                    /// USERNAME FIELD CONTAINER
+                    /// EMAIL ADDRESS FIELD
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'USERNAME OR EMAIL',
+                        'EMAIL ADDRESS', // 🟢 FIXED: Refactored label context
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -154,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
-                      controller: _usernameController,
+                      controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       enabled: !isLoading,
                       decoration: InputDecoration(
@@ -171,17 +166,27 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderSide: BorderSide.none,
                         ),
                       ),
+                      // 🟢 FIXED: Clears inline server layout error immediately when typing begins
+                      onChanged: (value) {
+                        if (_serverEmailError != null) {
+                          setState(() => _serverEmailError = null);
+                          _formKey.currentState!.validate();
+                        }
+                      },
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return '* Required';
                         }
-                        return _serverUsernameError; // Returns backend response error inline
+                        if (!value.contains('@') || !value.contains('.')) {
+                          return 'Please enter a valid email address';
+                        }
+                        return _serverEmailError;
                       },
                     ),
 
                     const SizedBox(height: 24),
 
-                    /// PASSWORD FIELD CONTAINER
+                    /// PASSWORD FIELD
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -234,6 +239,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderSide: BorderSide.none,
                         ),
                       ),
+                      // 🟢 FIXED: Clears inline password error immediately when user begins editing
+                      onChanged: (value) {
+                        if (_serverPasswordError != null) {
+                          setState(() => _serverPasswordError = null);
+                          _formKey.currentState!.validate();
+                        }
+                      },
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return '* Required';
@@ -241,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value.length < 6) {
                           return 'Password should be at least 6 characters';
                         }
-                        return _serverPasswordError; // Returns backend response error inline
+                        return _serverPasswordError;
                       },
                     ),
 

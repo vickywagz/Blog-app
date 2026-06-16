@@ -483,3 +483,57 @@ exports.resetPassword = async (req, res) => {
       });
   }
 };
+
+// 🟢 AUTHENTICATE / LOGIN AN EXISTING USER
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "Please provide both email and password" });
+    }
+
+    // 1. Locate user via unique email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(403)
+        .json({ success: false, msg: "Authentication failed. User profile not found." });
+    }
+
+    // 2. Enforce the verification gate!
+    if (!user.isVerified) {
+      return res
+        .status(401)
+        .json({ success: false, msg: "Account not verified. Please verify your email first." });
+    }
+
+    // 3. Validate password using your schema's comparison method
+    // Note: If your User model uses a custom method like user.comparePassword(password), use that here instead!
+    const isMatch = await user.comparePassword(password); 
+    if (!isMatch) {
+      return res
+        .status(403)
+        .json({ success: false, msg: "Authentication failed. Wrong password." });
+    }
+
+    // 4. Generate standard JWT payload credentials
+    // Note: If you don't use a schema helper method, you can sign it inline:
+    // const jwt = require('jsonwebtoken');
+    // const token = 'Bearer ' + jwt.sign({ id: user._id }, 'YOUR_SECRET_KEY', { expiresIn: '7d' });
+    const token = await user.generateJwtToken(); // Adjust this line to match how your app signs tokens!
+
+    return res.status(200).json({
+      success: true,
+      msg: "Login successful!",
+      token: token,
+    });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ success: false, msg: "Server error during authentication processing" });
+  }
+};

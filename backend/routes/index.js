@@ -15,7 +15,7 @@ router.get("/dashboard", (req, res) => {
 
 // 🔐 --- EXISTING AUTHENTICATION ROUTING ---
 router.post("/adduser", action.addNew);
-router.post("/authenticate", action.authenticate);
+router.post("/authenticate", authAction.login);
 router.get(
   "/getinfo",
   passport.authenticate("jwt", { session: false }),
