@@ -25,12 +25,17 @@ Note: To install the file, you must enable "Install from Unknown Sources" in you
 
 ## Tech Stack & Architecture
 
-The application is built as a native mobile experience using the following tools:
+The project uses a client-server architecture split into two core layers:
 
+### Mobile Frontend
 * **Framework:** Flutter & Dart - Used to compile the mobile app for both iOS and Android from a single codebase.
 * **State Management:** Provider - Manages user authentication states and profile data across different screens.
 * **Navigation:** GoRouter - Handles declarative routing and screen transitions.
 * **Networking:** Dio - HTTP client configured with interceptors to automatically attach authentication headers and handle server response status codes.
+
+### Backend API
+* **Runtime Environment:** Node.js - Powers the backend services and handles network business logic.
+* **Routing Framework:** Express - Manages backend endpoint pathways like `/authenticate`, `/register`, `/verify-otp`, `/getinfo`, and `/update-profile`.
 
 ---
 
