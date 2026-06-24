@@ -55,3 +55,15 @@ The application is built as a native mobile experience using the following tools
 
    Bash
    flutter run
+
+   Set up and start the Node.js backend server:
+
+2. # Navigate to your backend directory (replace with your actual backend folder name if different)
+    cd backend
+    npm install
+    npm start
+    Get the frontend mobile dependencies and run the app:
+
+3. # Open a new terminal window and navigate back to the root project folder
+    flutter pub get
+    flutter run
