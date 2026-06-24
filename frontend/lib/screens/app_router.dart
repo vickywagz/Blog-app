@@ -133,7 +133,9 @@ GoRouter createRouter(AuthProvider authProvider) {
           currentLoc == '/register' ||
           currentLoc == '/forgot-password' ||
           currentLoc == '/otp-screen' ||
-          currentLoc == '/reset-password';
+          currentLoc == '/reset-password' ||
+          currentLoc == '/'
+          ;
 
       // 3. User is NOT logged in:
       if (!loggedIn) {

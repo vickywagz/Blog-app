@@ -160,8 +160,7 @@ class PostCardWidget extends StatelessWidget {
                       ),
                     ),
 
-                    const Spacer(), // Push menu button cleanly all the way right
-
+                   
                     /// THREE-DOTS POPUP MENU BUTTON
                     PopupMenuButton<String>(
                       icon: const Icon(

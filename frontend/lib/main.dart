@@ -1,5 +1,7 @@
 import 'package:blog_app/providers/auth_provider.dart';
 import 'package:blog_app/providers/post_provider.dart';
+// 🟢 STEP 1: Import the notification provider
+import 'package:blog_app/providers/notification_provider.dart'; 
 import 'package:blog_app/screens/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +30,8 @@ class _FlutterAuthState extends State<FlutterAuth> {
       providers: [
         ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
         ChangeNotifierProvider<PostProvider>(create: (_) => PostProvider()),
+        // 🟢 STEP 2: Add it here to mount it globally into the widget tree
+        ChangeNotifierProvider<NotificationProvider>(create: (_) => NotificationProvider()), 
       ],
       child: Builder(
         builder: (context) {

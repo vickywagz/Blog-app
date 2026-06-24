@@ -18,6 +18,17 @@ class PostProvider with ChangeNotifier {
   String get currentSort =>
       _currentSort; // 🟢 Added: Exposes filter key to the UI
 
+  /// 🟢 Helper utility to safely extract a List from varied API JSON structures
+  List<dynamic> _extractList(dynamic data) {
+    if (data == null) return [];
+    if (data is List) return data;
+    if (data is Map) {
+      // Looks for common backend wrapping array keys dynamically
+      return data['posts'] ?? data['data'] ?? data['result'] ?? [];
+    }
+    return [];
+  }
+
   /// Fetch all posts and cache them in memory reactively with explicit query sorts
   Future<void> getAllPost({String sortBy = 'recent'}) async {
     _isLoading = true;
@@ -32,7 +43,9 @@ class PostProvider with ChangeNotifier {
       // 🟢 CRITICAL: We pass the sorting string directly downstream to your Service interface
       Response? res = await PostService().getAllPost(sortBy: _currentSort);
       if (res != null && res.data != null) {
-        _posts = (res.data as List).map((data) => Post.fromJson(data)).toList();
+        // 🟢 FIXED: Safe array parsing extraction guard implemented
+        final List<dynamic> rawList = _extractList(res.data);
+        _posts = rawList.map((data) => Post.fromJson(data)).toList();
       }
     } catch (e) {
       print('Error fetching posts: $e');
@@ -64,7 +77,9 @@ class PostProvider with ChangeNotifier {
       print('Search Executed for: $_searchKey');
       Response? res = await PostService().searchPost(_searchKey);
       if (res != null && res.data != null) {
-        _posts = (res.data as List).map((data) => Post.fromJson(data)).toList();
+        // 🟢 FIXED: Guarded wrapper casting block
+        final List<dynamic> rawList = _extractList(res.data);
+        _posts = rawList.map((data) => Post.fromJson(data)).toList();
       }
     } catch (e) {
       print('Error matching query inputs: $e');
@@ -194,13 +209,28 @@ class PostProvider with ChangeNotifier {
   /// 🟢 Fetches a single post. Returns from local memory cache first, or falls back to API.
   Future<Post?> getSinglePost(String id) async {
     // Optimization: Check if we already have it loaded in memory
-    final localMatch = _posts.firstWhere((element) => element.id == id, orElse: () => Post(id: '', title: '', body: '', author: '', authorId: '', postImage: '', viewsCount: 0, likes: [], savedBy: []));
+    final localMatch = _posts.firstWhere(
+      (element) => element.id == id,
+      orElse: () => Post(
+        id: '',
+        title: '',
+        body: '',
+        author: '',
+        authorId: '',
+        postImage: '',
+        viewsCount: 0,
+        likes: [],
+        savedBy: [],
+      ),
+    );
     if (localMatch.id.isNotEmpty) return localMatch;
 
     try {
       Response? res = await PostService().getPostById(id);
       if (res != null && res.data != null) {
-        return Post.fromJson(res.data);
+        // Handle maps vs raw post format objects cleanly
+        final mapData = res.data is Map ? res.data : null;
+        return Post.fromJson(mapData ?? res.data);
       }
     } catch (e) {
       print('Error loading specific post ID node: $e');
@@ -213,7 +243,9 @@ class PostProvider with ChangeNotifier {
     try {
       Response? res = await PostService().getPostsByAuthor(authorId);
       if (res != null && res.data != null) {
-        return (res.data as List).map((data) => Post.fromJson(data)).toList();
+        // 🟢 FIXED: Protected cast pipeline structure mapping layout
+        final List<dynamic> rawList = _extractList(res.data);
+        return rawList.map((data) => Post.fromJson(data)).toList();
       }
     } catch (e) {
       print('Error tracking author timeline inputs: $e');
@@ -241,11 +273,13 @@ class PostProvider with ChangeNotifier {
 
     // Background server sync
     Response? res = await PostService().toggleLike(postId);
-    
+
     // If server fails or returns an explicit bad code, gracefully roll back local state
     if (res == null || res.statusCode != 200) {
       print('Like sync failed. Rolling back state.');
-      final rollBackIndex = _posts.indexWhere((element) => element.id == postId);
+      final rollBackIndex = _posts.indexWhere(
+        (element) => element.id == postId,
+      );
       if (rollBackIndex != -1) {
         _posts[rollBackIndex] = originalPost;
         notifyListeners();
@@ -273,10 +307,12 @@ class PostProvider with ChangeNotifier {
 
     // Background server sync
     Response? res = await PostService().toggleBookmark(postId);
-    
+
     if (res == null || res.statusCode != 200) {
       print('Bookmark sync failed. Rolling back state.');
-      final rollBackIndex = _posts.indexWhere((element) => element.id == postId);
+      final rollBackIndex = _posts.indexWhere(
+        (element) => element.id == postId,
+      );
       if (rollBackIndex != -1) {
         _posts[rollBackIndex] = originalPost;
         notifyListeners();

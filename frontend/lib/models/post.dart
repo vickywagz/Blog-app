@@ -5,7 +5,7 @@ class Post {
   final String author;
   final String authorId;
   final String postImage; 
-  final int viewsCount;   
+  final int viewsCount;    
   final List<String> likes; 
   final List<String> savedBy; 
   final DateTime? createdAt;
@@ -24,24 +24,49 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
+    // 🟢 SAFE PARSING: Extract author name if populated as an object, otherwise read string
+    String parsedAuthor = '';
+    if (json['author'] is Map) {
+      parsedAuthor = json['author']['name'] ?? json['author']['username'] ?? '';
+    } else if (json['author'] is String) {
+      parsedAuthor = json['author'];
+    }
+
+    // 🟢 SAFE PARSING: Extract author database ID if populated as an object, otherwise read string
+    String parsedAuthorId = '';
+    if (json['author_id'] is Map) {
+      parsedAuthorId = json['author_id']['_id'] ?? json['author_id']['id'] ?? '';
+    } else if (json['author_id'] is String) {
+      parsedAuthorId = json['author_id'];
+    } else if (json['author'] is Map) {
+      // Intelligent fallback: if author_id is missing but author is an object, pull the ID from inside it
+      parsedAuthorId = json['author']['_id'] ?? json['author']['id'] ?? '';
+    }
+
+    // 🟢 SAFE PARSING: Extract image URL if asset object metadata is returned instead of string
+    String parsedImage = '';
+    if (json['postImage'] is Map) {
+      parsedImage = json['postImage']['url'] ?? json['postImage']['secure_url'] ?? '';
+    } else if (json['postImage'] is String) {
+      parsedImage = json['postImage'];
+    }
+
     return Post(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       title: json['title'] ?? '',
       body: json['body'] ?? '',
-      author: json['author'] ?? '',
-      authorId: json['author_id'] ?? '',
-      postImage: json['postImage'] ?? '',
+      author: parsedAuthor,
+      authorId: parsedAuthorId,
+      postImage: parsedImage,
       viewsCount: json['viewsCount'] ?? 0,
-      // Safely maps string arrays from dynamic lists
       likes: List<String>.from(json['likes'] ?? []),
       savedBy: List<String>.from(json['savedBy'] ?? []),
       createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+          ? DateTime.tryParse(json['createdAt'].toString()) 
           : null,
     );
   }
 
-  // 🟢 Append this method inside your Post class
   Post copyWith({
     String? id,
     String? title,
@@ -61,7 +86,7 @@ class Post {
       author: author ?? this.author,
       authorId: authorId ?? this.authorId,
       postImage: postImage ?? this.postImage,
-      viewsCount: viewsCount ?? this.viewsCount, // 🟢 Smoothly update view count parameter
+      viewsCount: viewsCount ?? this.viewsCount, 
       likes: likes ?? this.likes,
       savedBy: savedBy ?? this.savedBy,
       createdAt: createdAt ?? this.createdAt,

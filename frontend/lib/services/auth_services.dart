@@ -212,11 +212,10 @@ class AuthService {
     }
   }
 
-  /// 🟢 FIXED: Added required parameter `username` to match data map requirements down below
+  /// 🟢 CLEANED: Removed username field parameter and dictionary entry entirely
   Future<Response?> updateProfileText({
     required String name,
     required String bio,
-    required String username,
   }) async {
     try {
       return await _dio.post(
@@ -224,7 +223,6 @@ class AuthService {
         data: {
           'name': name,
           'bio': bio,
-          'username': username, // This compiles perfectly now!
         },
       );
     } on DioException catch (ex) {

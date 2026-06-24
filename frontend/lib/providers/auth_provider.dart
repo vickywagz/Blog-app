@@ -381,7 +381,7 @@ class AuthProvider with ChangeNotifier {
         _user = User(
           id: _user!.id,
           name: _user!.name,
-          username: _user!.username,
+
           email: _user!.email,
           bio: _user!.bio,
           profilePicture: _user!.profilePicture,
@@ -404,23 +404,18 @@ class AuthProvider with ChangeNotifier {
   Future<bool> updateProfileDetails({
     required String name,
     required String bio,
-    required String username,
   }) async {
     _isLoading = true;
     notifyListeners();
 
-    Response? res = await AuthService().updateProfileText(
-      name: name,
-      bio: bio,
-      username: username,
-    );
+    // Removed username parameter from the backend API call payload
+    Response? res = await AuthService().updateProfileText(name: name, bio: bio);
 
     if (res != null && res.statusCode == 200) {
       if (_user != null) {
         _user = User(
           id: _user!.id,
           name: name,
-          username: username,
           email: _user!.email,
           bio: bio,
           profilePicture: _user!.profilePicture,

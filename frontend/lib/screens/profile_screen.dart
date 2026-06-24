@@ -14,16 +14,14 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   // State management for inputs
   late final TextEditingController _nameController;
-  late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
   late final TextEditingController _emailController;
 
   // Tracks if any values have actually changed to activate top buttons
   bool _hasChanges = false;
 
-  // 🟢 State variables to store initial values dynamically from the Provider
+  // State variables to store initial values dynamically from the Provider
   late String _initialName;
-  late String _initialUsername;
   late String _initialBio;
   late String _initialEmail;
 
@@ -31,34 +29,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
 
-    // 🟢 Extract the current user state immediately on initialization
+    // Extract the current user state immediately on initialization
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.user;
 
-    // 🟢 Fallback to your old defaults if the user object properties happen to be blank
+    // Fallback defaults if user object properties are blank
     _initialName = user?.name ?? 'Julian Vane';
-    _initialUsername = user?.username ?? 'julianvane';
-    _initialBio =
-        user?.bio ??
-        'Editor-in-Chief. Obsessed with minimal computing and the intersection of technology and human';
+    _initialBio = user?.bio ?? 'Editor-in-Chief. Obsessed with minimal computing...';
     _initialEmail = user?.email ?? 'julian.vane@curator.io';
 
     // Assign text values straight down to controllers
     _nameController = TextEditingController(text: _initialName);
-    _usernameController = TextEditingController(text: _initialUsername);
     _bioController = TextEditingController(text: _initialBio);
     _emailController = TextEditingController(text: _initialEmail);
 
-    // Listeners to watch and activate the top "Save Changes" header block dynamically
+    // Listeners to watch and activate changes dynamically
     _nameController.addListener(_checkForChanges);
-    _usernameController.addListener(_checkForChanges);
     _bioController.addListener(_checkForChanges);
   }
 
   void _checkForChanges() {
     final changed =
         _nameController.text != _initialName ||
-        _usernameController.text != _initialUsername ||
         _bioController.text != _initialBio;
 
     if (changed != _hasChanges) {
@@ -71,7 +63,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _usernameController.dispose();
     _bioController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -79,21 +70,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _resetFields() {
     _nameController.text = _initialName;
-    _usernameController.text = _initialUsername;
     _bioController.text = _initialBio;
     FocusScope.of(context).unfocus();
   }
 
-  // Inside your Profile Screen State class where you handle the save event:
-  // Inside your Profile Screen State class where you handle the save event:
   Future<void> _handleProfileSave() async {
     final authProvider = context.read<AuthProvider>();
 
-    // Get values straight from your text controllers
     final newName = _nameController.text.trim();
     final newBio = _bioController.text.trim();
-    final newUsername = _usernameController.text
-        .trim(); // 🟢 Read username field
 
     if (newName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,26 +87,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // Fire the updates straight to the database via provider
+    // Fire the updates straight to the backend via provider (Removed username)
     bool success = await authProvider.updateProfileDetails(
       name: newName,
-      bio: newBio,
-      username: newUsername, 
+      bio: newBio, 
     );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            success
-                ? 'Profile updated successfully!'
-                : 'Failed to update profile.',
+            success ? 'Profile updated successfully!' : 'Failed to update profile.',
           ),
           backgroundColor: success ? Colors.green : Colors.redAccent,
         ),
       );
-
-      // 🟢 FIXED: Removed the undefined _isEditing line since you track state via _hasChanges instead!
     }
   }
 
@@ -145,7 +125,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           actions: [
             TextButton(
-              // 🟢 The button already has an onPressed handler dismissing the dialog box here!
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Cancel',
@@ -157,13 +136,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // 1. Dismiss modal first
                 Navigator.pop(dialogContext);
-
-                // 2. Clear out the User state data inside your provider layer 🟢
                 await context.read<AuthProvider>().logout();
-
-                // 3. Purge history and redirect safely
                 if (context.mounted) {
                   context.go('/login');
                 }
@@ -191,10 +165,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 Optional: If your avatar or other parts of the layout need to react
-    // immediately to profile data changes elsewhere, you can watch the state here:
-    final currentUser = context.watch<AuthProvider>().user;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
@@ -235,33 +205,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: ElevatedButton(
-                onPressed: _hasChanges
-                    ? () async {
-                        // 🟢 1. Dismiss keyboard
-                        FocusScope.of(context).unfocus();
-
-                        // 🟢 2. Call the actual save logic we defined
-                        await _handleProfileSave();
-
-                        // 🟢 3. Update the initial values so the "Save" button hides again
-                        setState(() {
-                          _initialName = _nameController.text;
-                          _initialBio = _bioController.text;
-                          _initialUsername = _usernameController.text;
-                          _hasChanges = false;
-                        });
-                      }
-                    : null,
+                onPressed: () async {
+                  FocusScope.of(context).unfocus();
+                  await _handleProfileSave();
+                  setState(() {
+                    _initialName = _nameController.text;
+                    _initialBio = _bioController.text;
+                    _hasChanges = false;
+                  });
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(
-                    0xFF00365C,
-                  ), // 🟢 Use brand blue when active
+                  backgroundColor: const Color(0xFF00365C),
                   disabledBackgroundColor: const Color(0xFFECEFF3),
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -269,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: const Text(
                   'Save Changes',
                   style: TextStyle(
-                    color: Colors.white, // 🟢 White text for better contrast
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -287,10 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F3F5),
                   borderRadius: BorderRadius.circular(20),
@@ -315,7 +269,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🟢 INSERT THIS INSTEAD:
               const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
@@ -343,25 +296,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 6),
-                ),
-              ),
-              TextField(
-                controller: _usernameController,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF7A8087),
-                ),
-                decoration: const InputDecoration(
-                  prefixText: '@ ',
-                  prefixStyle: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF7A8087),
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
                 ),
               ),
               const SizedBox(height: 28),
@@ -445,7 +379,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _initialEmail, // 🟢 Render dynamically populated state parameter
+                      _initialEmail,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -462,10 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 18,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F4F9),
                     borderRadius: BorderRadius.circular(12),

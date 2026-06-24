@@ -1,41 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:blog_app/providers/post_provider.dart';
+import 'package:blog_app/providers/auth_provider.dart'; // 🟢 Added to get active User ID
 
 class SavedScreen extends StatelessWidget {
   const SavedScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    
-    final savedArticles = [
-      {
-        'title': 'The Future of Minimal Computing: Why Le...',
-        'author': 'Elena Vance',
-        'image':
-            'assets/images/minimal_computing.jpg', 
-      },
-      {
-        'title': 'Architectural Silence: Finding Peace in...',
-        'author': 'Julian Thorne',
-        'image': 'assets/images/architecture.jpg',
-      },
-      {
-        'title': 'Sustainability and Spirit: How We...',
-        'author': 'Sarah Jenkins',
-        'image': 'assets/images/sustainability.jpg',
-      },
-      {
-        'title': 'Hospitality Trends: The Rise of the...',
-        'author': 'Marcus Chen',
-        'image': 'assets/images/hospitality.jpg',
-      },
-    ];
+    // 1. Fetch current User ID to check against the 'savedBy' collection array
+    final authProvider = context.watch<AuthProvider>();
+    final String currentUserId = authProvider.user?.id ?? '';
+
+    // 2. Watch live post data from your PostProvider
+    final postProvider = context.watch<PostProvider>();
+
+    // 🟢 FILTER: Find all articles where the savedBy array contains our logged-in User ID
+    final savedArticles = postProvider.posts.where((post) {
+      return post.savedBy.contains(currentUserId);
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-
+        scrolledUnderElevation: 0,
         title: const Text(
           'THE CURATOR',
           style: TextStyle(
@@ -84,86 +75,125 @@ class SavedScreen extends StatelessWidget {
 
             /// VERTICAL COMPACT INTERIOR DECK
             Expanded(
-              child: ListView.separated(
-                itemCount: savedArticles.length,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(
-                  bottom: 110,
-                ), // Prevents your floating nav shell from clipped overviews
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 20),
-                itemBuilder: (context, index) {
-                  final article = savedArticles[index];
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      /// Article Image Thumbnail Frame
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAEAEA),
+              child: savedArticles.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.bookmark_border_rounded,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'No bookmarked entries found.',
+                            style: TextStyle(
+                              color: Color(0xFF7A8087),
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: savedArticles.length,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 110),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 20),
+                      itemBuilder: (context, index) {
+                        final article = savedArticles[index];
+
+                        return InkWell(
+                          onTap: () {
+                            // Navigates cleanly to your post details page view
+                            context.go('/feed/post/${article.id}');
+                          },
                           borderRadius: BorderRadius.circular(16),
-                          // Once images are wired, toggle this decoration rule:
-                          /* image: DecorationImage(
-                            image: AssetImage(article['image']!),
-                            fit: BoxFit.cover,
-                          ), */
-                        ),
-                        child: const Icon(
-                          Icons.image_outlined,
-                          color: Colors.grey,
-                        ), // Fallback image placeholder
-                      ),
-                      const SizedBox(width: 16),
-
-                      /// Mid Deck Meta Details Text Panel
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              article['title']!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1F2328),
-                                height: 1.25,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              /// Article Image Thumbnail Frame
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEAEAEA),
+                                  borderRadius: BorderRadius.circular(16),
+                                  image:
+                                      article.postImage != null &&
+                                          article.postImage!.isNotEmpty
+                                      ? DecorationImage(
+                                          image: NetworkImage(
+                                            article.postImage!,
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                ),
+                                child:
+                                    article.postImage == null ||
+                                        article.postImage!.isEmpty
+                                    ? const Icon(
+                                        Icons.image_outlined,
+                                        color: Colors.grey,
+                                      )
+                                    : null,
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              article['author']!,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF7A8087),
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
+                              const SizedBox(width: 16),
 
-                      /// Dynamic Save Context Trigger Icon
-                      IconButton(
-                        icon: const Icon(
-                          Icons
-                              .bookmark_rounded, // Styled matching the solid visual selection on your blueprint
-                          color: Color(0xFF005A8D),
-                          size: 24,
-                        ),
-                        onPressed: () {
-                          // Connect your state management listener here (e.g. context.read<PostProvider>().toggleSave(id))
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
+                              /// Mid Deck Meta Details Text Panel
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      article.title ?? 'Untitled',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1F2328),
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      article.author ?? 'Unknown Author',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF7A8087),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+
+                              /// Dynamic Save Context Trigger Icon
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.bookmark_rounded,
+                                  color: Color(0xFF005A8D),
+                                  size: 24,
+                                ),
+                                onPressed: () {
+                                  // 🟢 CONNECTED: Call your exact optimistic toggle bookmark function
+                                  context.read<PostProvider>().togglePostSave(
+                                    article.id,
+                                    currentUserId,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

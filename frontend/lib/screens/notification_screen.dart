@@ -15,13 +15,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   void initState() {
     super.initState();
-    // 🟢 Request live notification feed metrics from /notifications when view mounts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NotificationProvider>().fetchNotifications();
     });
   }
 
-  // Minimalist human-readable timestamp helper engine
   String _getRelativeTime(DateTime? dateTime) {
     if (dateTime == null) return 'Just now';
     final difference = DateTime.now().difference(dateTime);
@@ -32,6 +30,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   void _handleNotificationTap(NotificationModel item) {
+    // 🟢 FIX 1: Mark individual item as read instantly via your provider backend pipeline
+    if (!item.isRead) {
+      context.read<NotificationProvider>().markAsRead(item.id); 
+    }
+
     if (item.postId.isNotEmpty) {
       context.go('/feed/post/${item.postId}');
     } else {
@@ -52,6 +55,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF0B3558)),
           onPressed: () => context.pop(),
@@ -91,6 +95,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   itemCount: notifications.length,
+                  physics: const BouncingScrollPhysics(),
                   itemBuilder: (context, index) {
                     final item = notifications[index];
                     return _buildNotificationCard(
@@ -98,11 +103,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          /// 🟢 POPULATED AVATAR RENDERING ENGINE
                           _buildCircularAvatar(item),
                           const SizedBox(width: 12),
-
-                          /// 🟢 RE-MAPPED TEXT LAYOUT SUB-SYSTEM
                           Expanded(
                             child: _buildContentByType(item),
                           ),
@@ -133,7 +135,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       backgroundImage: item.senderAvatar.isNotEmpty ? NetworkImage(item.senderAvatar) : null,
       child: item.senderAvatar.isEmpty
           ? Text(
-              item.senderName.substring(0, 1).toUpperCase(),
+              item.senderName.isNotEmpty ? item.senderName.substring(0, 1).toUpperCase() : '?',
               style: const TextStyle(color: Color(0xFF0B3558), fontWeight: FontWeight.bold),
             )
           : null,
@@ -195,7 +197,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       );
     }
 
-    // Default Fallback: Trending Activity layout
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -240,27 +241,29 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Widget _buildNotificationCard({required NotificationModel item, required Widget child}) {
     final bool isUnread = !item.isRead;
+    
+    // 🟢 FIX 2: Restructured layout wrapper so Material ink interactions sit above card colors
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => _handleNotificationTap(item),
+      decoration: BoxDecoration(
+        color: isUnread ? const Color(0xFFF3F7FF) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        // 🟢 FIXED: Wrapped inside explicit dynamic Material padding layer so ink drops don't glitch 
-        child: Ink(
-          decoration: BoxDecoration(
-            color: isUnread ? const Color(0xFFF3F7FF) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: isUnread ? null : Border.all(color: const Color(0xFFF1F3F5), width: 1),
-            boxShadow: isUnread
-                ? null
-                : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-          ),
+        border: isUnread ? null : Border.all(color: const Color(0xFFF1F3F5), width: 1),
+        boxShadow: isUnread
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent, // Keeps our explicit outer decoration background alive
+        child: InkWell(
+          onTap: () => _handleNotificationTap(item),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: child,
